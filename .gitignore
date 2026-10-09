@@ -32,3 +32,16 @@ Build_Release/vim.exe.stackdump
 *.iobj
 *.ipdb
 *.exp
+# FroggyClaw build outputs and game data
+core_87000000
+core_87000000_*
+core_87
+openclaw_libretro.so
+openclaw_libretro_sf2000.a
+test_runner
+build/
+build_native/
+frames/
+Build_Release/claw
+Build_Release/claw.gba
+config.xml
