@@ -347,6 +347,28 @@ static IEventDataPtr XmlElemToGeneratedEvent(TiXmlElement* pElem)
 
         pEventData.reset(new EventData_Set_Volume(deltaVolume, true, isMusic));
     }
+    else if (eventType == "ModifyVideoScale")
+    {
+        int deltaScale = 0;
+        if (!ParseValueFromXmlElem(&deltaScale, pElem->FirstChildElement("DeltaScale")))
+        {
+            LOG_ERROR("No delta scale defined in ModifyVideoScale event !");
+            return nullptr;
+        }
+
+        pEventData.reset(new EventData_Set_Video_Scale(deltaScale));
+    }
+    else if (eventType == "ModifyMaxFps")
+    {
+        int maxFps = 0;
+        if (!ParseValueFromXmlElem(&maxFps, pElem->FirstChildElement("MaxFps")))
+        {
+            LOG_ERROR("No max fps defined in ModifyMaxFps event !");
+            return nullptr;
+        }
+
+        pEventData.reset(new EventData_Set_Max_Fps(maxFps));
+    }
     else if (eventType == "ResumeGame")
     {
         pEventData.reset(new EventData_IngameMenu_Resume_Game());
@@ -990,6 +1012,11 @@ void ScreenElementMenuItem::VOnUpdate(uint32 msDiff)
         int musicVolume = g_pApp->GetAudio()->GetMusicVolume();
         m_Position.SetX(m_DefaultPosition.x + (musicVolume / 2) * 20);
     }
+    else if (m_Name == "VIDEO_KNOB")
+    {
+        int renderScale = g_pApp->GetRenderScale();
+        m_Position.SetX(m_DefaultPosition.x + ((renderScale - 50) * 4));
+    }
 }
 
 void ScreenElementMenuItem::VOnRender(uint32 msDiff)
@@ -1128,6 +1155,20 @@ bool ScreenElementMenuItem::Initialize(TiXmlElement* pElem)
         else if (conditionTypeStr == "AmbientOff")
         {
             m_bVisible = false;
+        }
+        else if (conditionTypeStr == "MaxFpsOn")
+        {
+            if (g_pApp->GetMaxFps() > 0)
+            {
+                m_bVisible = true;
+            }
+        }
+        else if (conditionTypeStr == "MaxFpsOff")
+        {
+            if (g_pApp->GetMaxFps() <= 0)
+            {
+                m_bVisible = true;
+            }
         }
     }
     std::string menuItemTypeStr;

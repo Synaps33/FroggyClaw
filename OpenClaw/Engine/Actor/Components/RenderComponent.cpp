@@ -32,6 +32,8 @@ bool BaseRenderComponent::VInit(TiXmlElement* pXmlData)
 
     WapPal* palette = g_pApp->GetCurrentPalette();
 
+    static std::map<std::string, std::map<std::string, std::shared_ptr<Image>>> s_imageCache;
+
     for (TiXmlElement* pImagePathElem = pXmlData->FirstChildElement("ImagePath");
         pImagePathElem; pImagePathElem = pImagePathElem->NextSiblingElement("ImagePath"))
     {
@@ -44,22 +46,27 @@ bool BaseRenderComponent::VInit(TiXmlElement* pXmlData)
         const char* imagesPath = pImagePathElem->GetText();
         assert(imagesPath != NULL);
 
-        // Get all files residing in given directory
-        // !!! THIS ASSUMES THAT WE ONLY WANT IMAGES FROM THIS DIRECTORY. IT IGNORES ALL NESTED DIRECTORIES !!!
-        // Maybe add recursive algo to libwap
+        const char* actorType = (pXmlData->Parent() && pXmlData->Parent()->ToElement()) ?
+            pXmlData->Parent()->ToElement()->Attribute("Type") : "";
+        std::string cacheKey = std::string(imagesPath) + "::" + (actorType ? actorType : "");
+
+        auto it = s_imageCache.find(cacheKey);
+        if (it != s_imageCache.end())
+        {
+            m_ImageMap.insert(it->second.begin(), it->second.end());
+            continue;
+        }
+
+        std::map<std::string, std::shared_ptr<Image>> loadedForThisPath;
+
         std::string imageDir = std::string(imagesPath);
-        //imageDir = imageDir.substr(0, imageDir.find("*")); // Get rid of everything after '*' including '*'
-        imageDir = imageDir.substr(0, imageDir.find_last_of("/")); // Get rid of filenames - get just path to the final directory
+        imageDir = imageDir.substr(0, imageDir.find_last_of("/"));
         std::vector<std::string> matchingPathNames =
             g_pApp->GetResourceCache()->GetAllFilesInDirectory(imageDir.c_str());
 
-        // Remove all images which dont conform to the given pattern
-        // This affects probably only object with "DoNothing" logic
-        // Compute everything in lowercase to assure compatibility with everything in the engine
         std::string imageDirLowercase(imagesPath);
         std::transform(imageDirLowercase.begin(), imageDirLowercase.end(), imageDirLowercase.begin(), (int(*)(int)) std::tolower);
-        //LOG("ImageDir: " + imageDir);
-        for (auto iter = matchingPathNames.begin(); iter != matchingPathNames.end(); /*++iter*/)
+        for (auto iter = matchingPathNames.begin(); iter != matchingPathNames.end(); )
         {
             if (!WildcardMatch(imageDirLowercase.c_str(), (*iter).c_str()))
             {
@@ -73,7 +80,6 @@ bool BaseRenderComponent::VInit(TiXmlElement* pXmlData)
 
         for (std::string& imagePath : matchingPathNames)
         {
-            // Only load known image formats
             if (!WildcardMatch("*.pid", imagePath.c_str()))
             {
                 continue;
@@ -83,50 +89,38 @@ bool BaseRenderComponent::VInit(TiXmlElement* pXmlData)
             if (!image)
             {
                 LOG_WARNING("Failed to load image: " + imagePath);
-                return false;
+                continue;
             }
 
             std::string imageNameKey = StripPathAndExtension(imagePath);
 
-            // Check if we dont already have the image loaded
-            if (m_ImageMap.count(imageNameKey) > 0)
+            if (loadedForThisPath.count(imageNameKey) > 0)
             {
                 LOG_WARNING("Trying to load existing image: " + imagePath);
                 continue;
             }
 
-            // HACK: all animation frames should be in format frameXXX
-            /*if (imageNameKey.find("chest") != std::string::npos)
-            {
-                imageNameKey.replace(0, 5, "frame");
-            }
-            // HACK: all animation frames should be in format frameXXX (length = 8)
-            if (imageNameKey.find("frame") != std::string::npos && imageNameKey.length() != 8)
-            {
-                int imageNameNumStr = std::stoi(std::string(imageNameKey).erase(0, 5));
-                imageNameKey = "frame" + Util::ConvertToThreeDigitsString(imageNameNumStr);
-            }*/
-            // Just reconstruct it...
-            if (imageNameKey.length() > 3 /* Hack for checkpointflag */ || 
-                std::string(pXmlData->Parent()->ToElement()->Attribute("Type")) == "GAME_CHECKPOINTFLAG")
+            if (imageNameKey.length() > 3 || 
+                (actorType && std::string(actorType) == "GAME_CHECKPOINTFLAG"))
             {
                 std::string tmp = imageNameKey;
-                tmp.erase(std::remove_if(tmp.begin(), tmp.end(), (int(*)(int))std::isalpha), tmp.end());
+                tmp.erase(std::remove_if(tmp.begin(), tmp.end(), [](char c){ return !std::isdigit((unsigned char)c); }), tmp.end());
                 if (!tmp.empty())
                 {
-                    int imageNum = std::stoi(tmp);
-                    imageNameKey = "frame" + Util::ConvertToThreeDigitsString(imageNum);
-                }
-                else
-                {
-                    //LOG(imagePath);
+                    try {
+                        int imageNum = std::stoi(tmp);
+                        imageNameKey = "frame" + Util::ConvertToThreeDigitsString(imageNum);
+                    } catch (...) {
+                    }
                 }
             }
 
-            m_ImageMap.insert(std::make_pair(imageNameKey, image));
+            loadedForThisPath.insert(std::make_pair(imageNameKey, image));
         }
-    }
 
+        s_imageCache[cacheKey] = loadedForThisPath;
+        m_ImageMap.insert(loadedForThisPath.begin(), loadedForThisPath.end());
+    }
     if (m_ImageMap.empty())
     {
         LOG_WARNING("Image map for render component is empty. Actor type: " + std::string(pXmlData->Parent()->ToElement()->Attribute("Type")));
@@ -624,25 +618,35 @@ bool TilePlaneRenderComponent::VDelegateInit(TiXmlElement* pXmlData)
     int32 tileIdx = 0;
 
     TileList tileList;
-    for (TiXmlElement* pTileNode = pTileElements->FirstChildElement(); 
-        pTileNode != NULL; 
-        pTileNode = pTileNode->NextSiblingElement())
-    {
-        std::string tileFileName(pTileNode->GetText());
 
-        // Temporarily keep track of the tiles stored
-        int32 tileId = std::stoi(tileFileName);
+    auto processTile = [&](int32 tileId) -> bool {
         tileList.push_back(tileId);
 
-        // Convert to three digits, e.g. "2" -> "002" or "15" -> "015"
-        if (tileFileName.length() == 1) 
-        { 
-            tileFileName = "00" + tileFileName; 
+        if (tileId <= -1)
+        {
+            m_TileImageList.push_back(NULL);
+            return true;
         }
-        else if (tileFileName.length() == 2 &&
-            !(g_pApp->GetGameLogic()->GetCurrentLevelData()->GetLevelNumber() == 1 && tileFileName == "74")) 
-        { 
-            tileFileName = "0" + tileFileName; 
+
+        std::string tileFileName;
+        if (tileId < 10)
+        {
+            tileFileName = "00" + ToStr(tileId);
+        }
+        else if (tileId < 100)
+        {
+            if (g_pApp->GetGameLogic()->GetCurrentLevelData()->GetLevelNumber() == 1 && tileId == 74)
+            {
+                tileFileName = "74";
+            }
+            else
+            {
+                tileFileName = "0" + ToStr(tileId);
+            }
+        }
+        else
+        {
+            tileFileName = ToStr(tileId);
         }
 
         auto findIt = m_ImageMap.find(tileFileName);
@@ -650,14 +654,9 @@ bool TilePlaneRenderComponent::VDelegateInit(TiXmlElement* pXmlData)
         {
             m_TileImageList.push_back(findIt->second.get());
         }
-        else if (tileFileName == "0-1" || tileFileName == "-1")
-        {
-            m_TileImageList.push_back(NULL);
-        }
         else if (m_PlaneProperties.name == "Background") // Use fill color, only aplicable to background
         {
             assert(m_pFillImage != nullptr);
-
             m_TileImageList.push_back(m_pFillImage.get());
         }
         else if (m_PlaneProperties.name == "Front") // Empty image on front plane most likely. First occurance on level 7
@@ -674,7 +673,36 @@ bool TilePlaneRenderComponent::VDelegateInit(TiXmlElement* pXmlData)
             return false;
         }
 
-        tileIdx++;
+        return true;
+    };
+
+    const int32* pRawTiles = (const int32*)pTileElements->GetUserData();
+    int count = 0;
+    pTileElements->QueryIntAttribute("count", &count);
+    if (pRawTiles && count > 0)
+    {
+        tileList.reserve(count);
+        m_TileImageList.reserve(count);
+        for (int i = 0; i < count; ++i)
+        {
+            if (!processTile(pRawTiles[i]))
+            {
+                return false;
+            }
+        }
+    }
+    else
+    {
+        for (TiXmlElement* pTileNode = pTileElements->FirstChildElement(); 
+            pTileNode != NULL; 
+            pTileNode = pTileNode->NextSiblingElement())
+        {
+            int32 tileId = std::stoi(pTileNode->GetText());
+            if (!processTile(tileId))
+            {
+                return false;
+            }
+        }
     }
 
     if (m_PlaneProperties.isMainPlane)

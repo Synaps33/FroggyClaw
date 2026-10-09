@@ -27,6 +27,11 @@ struct GameOptions
         useVerticalSync = true;
         isFullscreen = false;
         isFullscreenDesktop = false;
+        renderScale = 80;
+        /* Upper bound on how fast the host may run the game, in frames per
+         * second. 0 means "no limit": the core then runs as fast as it can,
+         * which is only useful for skipping through loads. */
+        maxFps = 30;
 
         frequency = 44100;
         soundChannels = 2;
@@ -66,6 +71,8 @@ struct GameOptions
     bool useVerticalSync;
     bool isFullscreen;
     bool isFullscreenDesktop;
+    int renderScale;
+    int maxFps;
 
     // Audio
     unsigned frequency;
@@ -257,6 +264,10 @@ public:
     int32 Run();
     void StepLoop();
 
+    // Lets a host that drives StepLoop() itself (libretro) notice that the
+    // engine has been asked to stop.
+    bool IsRunning() const { return m_IsRunning; }
+
     // This is provided to be used the engine
     bool LoadStrings(std::string language);
     std::string GetString(std::string stringId);
@@ -288,7 +299,17 @@ public:
     Audio* GetAudio() const { return m_pAudio; }
 
     bool LoadGameOptions(const char* inConfigFile = "config.xml");
-    void SaveGameOptions(const char* outConfigFile = "config.xml");
+    /* NULL means "the file LoadGameOptions() read". The default must not be a
+     * literal "config.xml": that is a path relative to the working directory,
+     * which is not where the host keeps the config, so the options would be
+     * written to a stray file next to the launcher instead. */
+    void SaveGameOptions(const char* outConfigFile = NULL);
+
+    int GetRenderScale() const { return m_GameOptions.renderScale; }
+    void SetRenderScale(int scale);
+
+    int GetMaxFps() const { return m_GameOptions.maxFps; }
+    void SetMaxFps(int fps);
 
     bool LoadLevel(const char* levelResource);
 
@@ -297,6 +318,9 @@ public:
     GameOptions* GetGameConfig() { return &m_GameOptions; }
     const GlobalOptions* GetGlobalOptions() const { return &m_GlobalOptions; }
     const ControlOptions* GetControlOptions() const { return &m_ControlOptions; }
+    // Non-const so a host can switch off subsystems it cannot provide (the
+    // libretro port has no touchscreen).
+    ControlOptions* GetControlOptions() { return &m_ControlOptions; }
     const DebugOptions* GetDebugOptions() const { return &m_DebugOptions; }
 
     TiXmlElement* GetActorPrototypeElem(ActorPrototype proto);
@@ -360,6 +384,7 @@ private:
 
     ActorXmlPrototypeMap m_ActorXmlPrototypeMap;
     LevelMetadataMap m_LevelMetadataMap;
+    std::string m_ConfigFilePath;
 };
 
 extern BaseGameApp* g_pApp;

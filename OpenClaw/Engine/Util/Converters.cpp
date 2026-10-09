@@ -163,14 +163,9 @@ TiXmlElement* WwdToXml(WapWwd* wapWwd, int levelNumber)
 
         //[Level::Actor::TilePlaneRenderComponent::Tiles]
         TiXmlElement* tiles = new TiXmlElement("Tiles");
+        tiles->SetUserData(wwdPlane.tiles);
+        tiles->SetAttribute("count", (int)wwdPlane.tilesCount);
         planeRenderComponentElem->LinkEndChild(tiles);
-
-        uint32 tilesCount = wwdPlane.tilesCount;
-        int32* pTiles = wwdPlane.tiles;
-        for (uint32 tileIdx = 0; tileIdx < tilesCount; ++tileIdx)
-        {
-            XML_ADD_TEXT_ELEMENT("Tile", ToStr(pTiles[tileIdx]).c_str(), tiles);
-        }
 
         if (wwdPlane.properties.flags & WAP_PLANE_FLAG_MAIN_PLANE)
         {

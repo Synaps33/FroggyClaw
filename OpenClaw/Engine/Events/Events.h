@@ -2387,6 +2387,76 @@ private:
 };
 
 //---------------------------------------------------------------------------------------------------------------------
+// EventData_Set_Video_Scale
+//---------------------------------------------------------------------------------------------------------------------
+class EventData_Set_Video_Scale : public BaseEventData
+{
+public:
+    static const EventType sk_EventType;
+
+    EventData_Set_Video_Scale()
+    {
+        m_DeltaScale = 0;
+    }
+
+    EventData_Set_Video_Scale(int deltaScale)
+    {
+        m_DeltaScale = deltaScale;
+    }
+
+    virtual const EventType& VGetEventType(void) const { return sk_EventType; }
+    virtual IEventDataPtr VCopy() const
+    {
+        return IEventDataPtr(new EventData_Set_Video_Scale(m_DeltaScale));
+    }
+    virtual void VSerialize(std::ostringstream& out) const { out << m_DeltaScale; }
+    virtual void VDeserialize(std::istringstream& in) { in >> m_DeltaScale; }
+
+    int GetDeltaScale() const { return m_DeltaScale; }
+
+    virtual const char* GetName(void) const { return "EventData_Set_Video_Scale"; }
+
+private:
+    int m_DeltaScale;
+};
+
+//---------------------------------------------------------------------------------------------------------------------
+// EventData_Set_Max_Fps
+//
+// Caps how often the core may start a new frame. 0 lifts the cap.
+//---------------------------------------------------------------------------------------------------------------------
+class EventData_Set_Max_Fps : public BaseEventData
+{
+public:
+    static const EventType sk_EventType;
+
+    EventData_Set_Max_Fps()
+    {
+        m_MaxFps = 0;
+    }
+
+    EventData_Set_Max_Fps(int maxFps)
+    {
+        m_MaxFps = maxFps;
+    }
+
+    virtual const EventType& VGetEventType(void) const { return sk_EventType; }
+    virtual IEventDataPtr VCopy() const
+    {
+        return IEventDataPtr(new EventData_Set_Max_Fps(m_MaxFps));
+    }
+    virtual void VSerialize(std::ostringstream& out) const { out << m_MaxFps; }
+    virtual void VDeserialize(std::istringstream& in) { in >> m_MaxFps; }
+
+    int GetMaxFps() const { return m_MaxFps; }
+
+    virtual const char* GetName(void) const { return "EventData_Set_Max_Fps"; }
+
+private:
+    int m_MaxFps;
+};
+
+//---------------------------------------------------------------------------------------------------------------------
 // EventData_Sound_Enabled_Changed
 //---------------------------------------------------------------------------------------------------------------------
 class EventData_Sound_Enabled_Changed : public BaseEventData

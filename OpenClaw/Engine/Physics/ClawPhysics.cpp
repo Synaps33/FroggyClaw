@@ -240,9 +240,7 @@ void ClawPhysics::VSyncVisibleScene()
 
         if (pGameActor && pActorBody)
         {
-            /*shared_ptr<PositionComponent> pPositionComponent = MakeStrongPtr(pGameActor->GetComponent<PositionComponent>(PositionComponent::g_Name));*/
-
-            shared_ptr<PositionComponent> pPositionComponent = pGameActor->GetPositionComponent();
+            PositionComponent* pPositionComponent = pGameActor->GetPositionComponentRaw();
             assert(pPositionComponent);
 
             Point bodyPixelPosition = b2Vec2ToPoint(MetersToPixels(pActorBody->GetPosition()));
@@ -254,7 +252,8 @@ void ClawPhysics::VSyncVisibleScene()
             // This causes slight CPU (1.5%) overhead
             if (pActorBody->GetType() == b2_dynamicBody)
             {
-                shared_ptr<PhysicsComponent> pPhysicsComponent = GetPhysicsComponentFromB2Body(pActorBody);
+                PhysicsComponent* pPhysicsComponent = pGameActor->GetPhysicsComponentRaw();
+                assert(pPhysicsComponent);
                 bool wasFalling = pPhysicsComponent->IsFalling();
                 bool wasJumping = pPhysicsComponent->IsJumping();
                 // Set jumping / falling properties
@@ -358,9 +357,9 @@ void ClawPhysics::VSyncVisibleScene()
                 }
             }
 
-            // Body moved by some portion
-            if ((fabs(bodyPixelPosition.x - actorPixelPosition.x)) > DBL_EPSILON ||
-                (fabs(bodyPixelPosition.y - actorPixelPosition.y)) > DBL_EPSILON)
+            // Body moved by some portion (filter tiny sub-pixel noise)
+            if ((fabs(bodyPixelPosition.x - actorPixelPosition.x)) > 0.05 ||
+                (fabs(bodyPixelPosition.y - actorPixelPosition.y)) > 0.05)
             {
                 // Box2D has moved the physics object. Update actor's position and notify subsystems which care
                 pPositionComponent->SetPosition(bodyPixelPosition);
@@ -391,11 +390,12 @@ void ClawPhysics::VSyncVisibleScene()
 //
 //    Updates physics.
 //
+//
 void ClawPhysics::VOnUpdate(const uint32 msDiff)
 {
     //PROFILE_CPU("ClawPhysics::VOnUpdate");
 
-    m_pWorld->Step(msDiff / 1000.0f, 10, 8);
+    m_pWorld->Step(msDiff / 1000.0f, 4, 2);
 
     // Remove actors form physics simulation which are scheduled to be destroyed
     for (uint32 actorId : m_ActorsToBeDestroyed)

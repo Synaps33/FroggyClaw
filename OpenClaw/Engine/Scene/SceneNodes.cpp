@@ -312,23 +312,29 @@ void GridNode::VRenderChildren(Scene* pScene)
         }
     }
 
-    std::vector<shared_ptr<ISceneNode>> intersectedNodes;
+    static std::vector<ISceneNode*> intersectedNodes;
+    intersectedNodes.clear();
     intersectedNodes.reserve(nodeCount);
-    for (int x = intersect.x; x < intersect.x + intersect.w && x < m_Grid.size(); ++x) {
+    for (int x = intersect.x; x < intersect.x + intersect.w && x < (int)m_Grid.size(); ++x) {
         auto &column = m_Grid[x];
-        for (int y = intersect.y; y < intersect.y + intersect.h && y < column.size(); ++y) {
+        for (int y = intersect.y; y < intersect.y + intersect.h && y < (int)column.size(); ++y) {
             auto &nodes = column[y];
-            if (!nodes.empty()) {
-                // Insert sorted vector to the end of sorted vector
-                int oldSize = intersectedNodes.size();
-                intersectedNodes.insert(intersectedNodes.end(), nodes.begin(), nodes.end());
-                // Sort resulted vector
-                std::inplace_merge(intersectedNodes.begin(), intersectedNodes.begin() + oldSize, intersectedNodes.end(), NodeCompare);
+            for (const auto &n : nodes) {
+                intersectedNodes.push_back(n.get());
             }
         }
     }
-    for (auto &node : intersectedNodes) {
-        RenderNode(pScene, node);
+    std::sort(intersectedNodes.begin(), intersectedNodes.end(),
+        [](ISceneNode* a, ISceneNode* b) {
+            return a->VGetProperties()->GetZCoord() < b->VGetProperties()->GetZCoord();
+        });
+    for (auto node : intersectedNodes) {
+        if (node->VIsVisible(pScene)) {
+            node->VPreRender(pScene);
+            node->VRender(pScene);
+            node->VRenderChildren(pScene);
+            node->VPostRender(pScene);
+        }
     }
 
     // Render another

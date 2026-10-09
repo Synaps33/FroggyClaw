@@ -73,22 +73,14 @@ int32 ResourceRezArchive::VGetRawResource(Resource* r, char* outBuffer)
         return -1;
     }
 
-    // This this buffer is owner by libwap => we need to create our own
-    char* data = WAP_GetRezFileData(rezFile);
-    //LOG_WARNING("rezFile->fullName = " + std::string(rezFile->fullPathAndName));
-    if (data == NULL)
+    int32 bytesRead = WAP_ReadRezFileData(rezFile, outBuffer);
+    if (bytesRead < 0)
     {
         LOG_ERROR("Could not load buffer for rez file: " + r->GetName() + " in rezArchive: " + _rezArchiveFileName);
         return -1;
     }
 
-    // 
-    memcpy(outBuffer, data, rezFile->size);
-
-    // We dont need libwaps data anymore
-    WAP_FreeFileData(rezFile);
-
-    return rezFile->size;
+    return bytesRead;
 }
 
 int32 ResourceRezArchive::VGetNumResources() const
@@ -148,7 +140,7 @@ bool ResourceZipArchive::VOpen()
     return false;
 }
 
-int ResourceZipArchive::VGetRawResourceSize(Resource* r)
+int32 ResourceZipArchive::VGetRawResourceSize(Resource* r)
 {
     std::string path = r->GetName().c_str();
     int resourceNum = m_pZipFile->Find(path);
@@ -160,7 +152,7 @@ int ResourceZipArchive::VGetRawResourceSize(Resource* r)
     return m_pZipFile->GetFileLen(resourceNum);
 }
 
-int ResourceZipArchive::VGetRawResource(Resource* r, char *buffer)
+int32 ResourceZipArchive::VGetRawResource(Resource* r, char *buffer)
 {
     int size = 0;
     std::string path = r->GetName();
@@ -174,12 +166,12 @@ int ResourceZipArchive::VGetRawResource(Resource* r, char *buffer)
     return size;
 }
 
-int ResourceZipArchive::VGetNumResources() const
+int32 ResourceZipArchive::VGetNumResources() const
 {
     return (m_pZipFile == NULL) ? 0 : m_pZipFile->GetNumFiles();
 }
 
-std::string ResourceZipArchive::VGetResourceName(int num) const
+std::string ResourceZipArchive::VGetResourceName(int32 num) const
 {
     std::string resName = "";
     if (m_pZipFile != NULL && num >= 0 && num < m_pZipFile->GetNumFiles())
@@ -314,7 +306,7 @@ std::shared_ptr<ResourceHandle> ResourceCache::Load(Resource* r)
     }
 
     int32 allocSize = rawSize + ((loader->VAddNullZero()) ? (1) : (0));
-    char* rawBuffer = loader->VUseRawFile() ? Allocate(allocSize) : new /*(std::nothrow)*/ char[allocSize];
+    char* rawBuffer = loader->VUseRawFile() ? Allocate(allocSize) : new (std::nothrow) char[allocSize];
     if (rawBuffer == NULL)
     {
         LOG_ERROR("Could not allocate enough memory for resource: " + r->GetName() + 
@@ -327,6 +319,10 @@ std::shared_ptr<ResourceHandle> ResourceCache::Load(Resource* r)
     {
         LOG_ERROR("Could not retrieve data buffer from resource: " + r->GetName() + 
             " in resource file: " + _resourceFile->VGetName());
+        if (!loader->VUseRawFile())
+        {
+            delete[] rawBuffer;
+        }
         return nullptr;
     }
 
@@ -347,6 +343,7 @@ std::shared_ptr<ResourceHandle> ResourceCache::Load(Resource* r)
         {
             LOG_ERROR("Could not allocate enough memory for resource: " + r->GetName() +
                 " in resource file: " + _resourceFile->VGetName());
+            delete[] rawBuffer;
             return shared_ptr<ResourceHandle>();
         }
          
@@ -397,7 +394,7 @@ char* ResourceCache::Allocate(uint32 size)
         return NULL;
     }
 
-    char* mem = new /*(std::nothrow)*/ char[size];
+    char* mem = new (std::nothrow) char[size];
     if (mem)
     {
         _allocated += size;
@@ -408,13 +405,25 @@ char* ResourceCache::Allocate(uint32 size)
 
 void ResourceCache::FreeOneResource()
 {
-    //LOG("FreeOneResource");
-    ResourceHandleList::iterator gonner = _lruList.end();
-    gonner--;
+    if (_lruList.empty())
+    {
+        return;
+    }
+
+    // Look from the back of the LRU list for a handle not held by external references
+    auto gonner = --_lruList.end();
+    for (auto it = _lruList.end(); it != _lruList.begin(); )
+    {
+        --it;
+        if (it->use_count() <= 2)
+        {
+            gonner = it;
+            break;
+        }
+    }
 
     shared_ptr<ResourceHandle> handle = *gonner;
-
-    _lruList.pop_back();
+    _lruList.erase(gonner);
     _resourceMap.erase(handle->GetName());
 }
 
@@ -425,6 +434,8 @@ void ResourceCache::Flush()
         std::shared_ptr<ResourceHandle> handle = *(_lruList.begin());
         Free(handle);
     }
+    _matchCache.clear();
+    _dirCache.clear();
 }
 
 bool ResourceCache::MakeRoom(uint32 size)
@@ -434,11 +445,7 @@ bool ResourceCache::MakeRoom(uint32 size)
         return false;
     }
 
-    int64 x = _cacheSize - _allocated;
-    //LOG("Room left: " + ToStr(x));
-
-    // Return NULL if there is no possibility to allocate memory
-    while (size > (_cacheSize - _allocated))
+    while (_allocated + size > _cacheSize)
     {
         if (_lruList.empty())
         {
@@ -471,18 +478,20 @@ std::vector<std::string> ResourceCache::Match(const std::string pattern)
         return matchingNames;
     }
 
-    // Everything is converted into lower case so maintain consistency
     std::string patternCopy = pattern;
     std::transform(patternCopy.begin(), patternCopy.end(), patternCopy.begin(), (int(*)(int)) std::tolower);
+
+    auto it = _matchCache.find(patternCopy);
+    if (it != _matchCache.end())
+    {
+        return it->second;
+    }
 
     uint32 numFiles = _resourceFile->VGetNumResources();
     for (uint32 fileIdx = 0; fileIdx < numFiles; ++fileIdx)
     {
         std::string fileNamePath = _resourceFile->VGetResourceName(fileIdx);
-        // Everything is converted into lower case so maintain consistency
         std::transform(fileNamePath.begin(), fileNamePath.end(), fileNamePath.begin(), (int(*)(int)) std::tolower);
-
-        //std::cout << "Filename: " << fileNamePath << ", Pattern: " << pattern << std::endl;
 
         if (WildcardMatch(patternCopy.c_str(), fileNamePath.c_str()))
         {
@@ -490,6 +499,7 @@ std::vector<std::string> ResourceCache::Match(const std::string pattern)
         }
     }
 
+    _matchCache[patternCopy] = matchingNames;
     return matchingNames;
 }
 using namespace std;
@@ -526,10 +536,21 @@ int32 ResourceCache::Preload(const std::string pattern, void(*progressCallback)(
         }
     }
 
+    printf("Preload loaded %d files matching '%s', cache allocated: %llu bytes\n", loaded, pattern.c_str(), _allocated);
     return loaded;
 }
 
 std::vector<std::string> ResourceCache::GetAllFilesInDirectory(const char* directoryPath)
 {
-    return _resourceFile->GetAllFilesInDirectory(directoryPath);
+    if (!_resourceFile || !directoryPath)
+        return std::vector<std::string>();
+
+    std::string dirKey = directoryPath;
+    auto it = _dirCache.find(dirKey);
+    if (it != _dirCache.end())
+        return it->second;
+
+    std::vector<std::string> files = _resourceFile->GetAllFilesInDirectory(directoryPath);
+    _dirCache.emplace(std::move(dirKey), files);
+    return files;
 }

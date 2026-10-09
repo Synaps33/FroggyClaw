@@ -241,10 +241,23 @@
             <State>Active</State>
             <InactiveImage>/GAME/IMAGES/INGAMEMENU/MAIN/OPTIONS/005_AUDIO.PID</InactiveImage>
             <ActiveImage>/GAME/IMAGES/INGAMEMENU/MAIN/OPTIONS/006_AUDIO.PID</ActiveImage>
-            <Position x="260" y="205" />
+            <Position x="260" y="180" />
             <GeneratedEvent>
                 <Type>SwitchPage</Type>
                 <PageName>MenuPage_Options_Audio</PageName>
+            </GeneratedEvent>
+        </MenuItem>
+        <MenuItem>
+            <Name>DISPLAY_BUTTON</Name>
+            <Type>Button</Type>
+            <Hotkey>D</Hotkey>
+            <State>Inactive</State>
+            <InactiveImage>/GAME/IMAGES/INGAMEMENU/MAIN/OPTIONS/003_DISPLAY.PID</InactiveImage>
+            <ActiveImage>/GAME/IMAGES/INGAMEMENU/MAIN/OPTIONS/004_DISPLAY.PID</ActiveImage>
+            <Position x="240" y="215" />
+            <GeneratedEvent>
+                <Type>SwitchPage</Type>
+                <PageName>MenuPage_Options_Display</PageName>
             </GeneratedEvent>
         </MenuItem>
         <MenuItem>
@@ -254,7 +267,7 @@
             <State>Inactive</State>
             <InactiveImage>/GAME/IMAGES/INGAMEMENU/MAIN/OPTIONS/007_PREVIOUSMENU.PID</InactiveImage>
             <ActiveImage>/GAME/IMAGES/INGAMEMENU/MAIN/OPTIONS/008_PREVIOUSMENU.PID</ActiveImage>
-            <Position x="266" y="240" />
+            <Position x="266" y="250" />
             <GeneratedEvent>
                 <Type>SwitchPage</Type>
                 <PageName>MenuPage_Main</PageName>
@@ -718,6 +731,180 @@
             <InactiveImage>/STATES/MENU/IMAGES/MAIN/OPTIONS/012_PREVIOUSMENU.PCX</InactiveImage>
             <ActiveImage>/STATES/MENU/IMAGES/MAIN/OPTIONS/013_PREVIOUSMENU.PCX</ActiveImage>
             <Position x="266" y="290" />
+            <GeneratedEvent>
+                <Type>SwitchPage</Type>
+                <PageName>MenuPage_Options</PageName>
+            </GeneratedEvent>
+        </MenuItem>
+    </MenuPage>
+
+    <!-- DISPLAY PAGE -->
+    <MenuPage>
+        <PageName>MenuPage_Options_Display</PageName>
+        <KeyboardEvent>
+            <KeyType>Escape</KeyType>
+            <GeneratedEvent>
+                <Type>SwitchPage</Type>
+                <PageName>MenuPage_Options</PageName>
+            </GeneratedEvent>
+        </KeyboardEvent>
+
+        <MenuItem>
+            <Name>DISPLAY_TITLE_TEXT</Name>
+            <Type>Text</Type>
+            <State>Inactive</State>
+            <InactiveImage>/STATES/MENU/IMAGES/MAIN/OPTIONS/DISPLAY/021_TITLE.PCX</InactiveImage>
+            <Position x="216" y="80" />
+        </MenuItem>
+
+        <MenuItem>
+            <Name>VIDEO_AREA_BUTTON</Name>
+            <Type>Button</Type>
+            <State>Active</State>
+            <InactiveImage>/STATES/MENU/IMAGES/MAIN/OPTIONS/DISPLAY/013_AREA.PCX</InactiveImage>
+            <ActiveImage>/STATES/MENU/IMAGES/MAIN/OPTIONS/DISPLAY/014_AREA.PCX</ActiveImage>
+            <Position x="48" y="170" />
+
+            <StateEnterEvents>
+                <Event>
+                    <ForState>Active</ForState>
+                    <Type>ModifyMenuItemState</Type>
+                    <MenuItemName>VIDEO_KNOB</MenuItemName>
+                    <State>Active</State>
+                </Event>
+            </StateEnterEvents>
+            <StateLeaveEvents>
+                <Event>
+                    <ForState>Active</ForState>
+                    <Type>ModifyMenuItemState</Type>
+                    <MenuItemName>VIDEO_KNOB</MenuItemName>
+                    <State>Inactive</State>
+                </Event>
+            </StateLeaveEvents>
+
+            <KeyEvents>
+                <KeyEvent>
+                    <Key>LeftArrow</Key>
+                    <Event>
+                        <Type>ModifyVideoScale</Type>
+                        <DeltaScale>-5</DeltaScale>
+                    </Event>
+                    <Event>
+                        <Type>PlaySound</Type>
+                        <SoundName>/STATES/MENU/SOUNDS/CLICK.WAV</SoundName>
+                        <Volume>100</Volume>
+                        <IsMusic>false</IsMusic>
+                        <Loops>-0</Loops>
+                    </Event>
+                </KeyEvent>
+                <KeyEvent>
+                    <Key>RightArrow</Key>
+                    <Event>
+                        <Type>ModifyVideoScale</Type>
+                        <DeltaScale>5</DeltaScale>
+                    </Event>
+                    <Event>
+                        <Type>PlaySound</Type>
+                        <SoundName>/STATES/MENU/SOUNDS/CLICK.WAV</SoundName>
+                        <Volume>100</Volume>
+                        <IsMusic>false</IsMusic>
+                        <Loops>-0</Loops>
+                    </Event>
+                </KeyEvent>
+            </KeyEvents>
+        </MenuItem>
+
+        <MenuItem>
+            <Name>VIDEO_KNOB</Name>
+            <Type>Slider</Type>
+            <State>Active</State>
+            <InactiveImage>/STATES/MENU/IMAGES/MAIN/OPTIONS/AUDIO/041_REDKNOB.PCX</InactiveImage>
+            <ActiveImage>/STATES/MENU/IMAGES/MAIN/OPTIONS/AUDIO/042_REDKNOB.PCX</ActiveImage>
+            <Position x="367" y="172" />
+        </MenuItem>
+
+        <!-- Frame rate cap. Only one of the two labels is visible; which one
+             shows the current setting. Pressing the button flips between them. -->
+        <MenuItem>
+            <Name>MAXFPS_ON_BUTTON</Name>
+            <Type>Button</Type>
+            <State>Inactive</State>
+            <VisibilityCondition>
+                <ConditionType>MaxFpsOn</ConditionType>
+            </VisibilityCondition>
+            <InactiveImage>/VIDEO/maxfps_on.png</InactiveImage>
+            <ActiveImage>/VIDEO/maxfps_on.png</ActiveImage>
+            <Position x="48" y="225" />
+            <GeneratedEvent>
+                <Type>ModifyMaxFps</Type>
+                <MaxFps>0</MaxFps>
+            </GeneratedEvent>
+            <GeneratedEvent>
+                <Type>ModifyMenuItemVisibility</Type>
+                <MenuItemName>MAXFPS_ON_BUTTON</MenuItemName>
+                <IsVisible>false</IsVisible>
+            </GeneratedEvent>
+            <GeneratedEvent>
+                <Type>ModifyMenuItemState</Type>
+                <MenuItemName>MAXFPS_ON_BUTTON</MenuItemName>
+                <State>Inactive</State>
+            </GeneratedEvent>
+            <GeneratedEvent>
+                <Type>ModifyMenuItemVisibility</Type>
+                <MenuItemName>MAXFPS_OFF_BUTTON</MenuItemName>
+                <IsVisible>true</IsVisible>
+            </GeneratedEvent>
+            <GeneratedEvent>
+                <Type>ModifyMenuItemState</Type>
+                <MenuItemName>MAXFPS_OFF_BUTTON</MenuItemName>
+                <State>Active</State>
+            </GeneratedEvent>
+        </MenuItem>
+
+        <MenuItem>
+            <Name>MAXFPS_OFF_BUTTON</Name>
+            <Type>Button</Type>
+            <State>Inactive</State>
+            <VisibilityCondition>
+                <ConditionType>MaxFpsOff</ConditionType>
+            </VisibilityCondition>
+            <InactiveImage>/VIDEO/maxfps_off.png</InactiveImage>
+            <ActiveImage>/VIDEO/maxfps_off.png</ActiveImage>
+            <Position x="48" y="225" />
+            <GeneratedEvent>
+                <Type>ModifyMaxFps</Type>
+                <MaxFps>30</MaxFps>
+            </GeneratedEvent>
+            <GeneratedEvent>
+                <Type>ModifyMenuItemVisibility</Type>
+                <MenuItemName>MAXFPS_OFF_BUTTON</MenuItemName>
+                <IsVisible>false</IsVisible>
+            </GeneratedEvent>
+            <GeneratedEvent>
+                <Type>ModifyMenuItemState</Type>
+                <MenuItemName>MAXFPS_OFF_BUTTON</MenuItemName>
+                <State>Inactive</State>
+            </GeneratedEvent>
+            <GeneratedEvent>
+                <Type>ModifyMenuItemVisibility</Type>
+                <MenuItemName>MAXFPS_ON_BUTTON</MenuItemName>
+                <IsVisible>true</IsVisible>
+            </GeneratedEvent>
+            <GeneratedEvent>
+                <Type>ModifyMenuItemState</Type>
+                <MenuItemName>MAXFPS_ON_BUTTON</MenuItemName>
+                <State>Active</State>
+            </GeneratedEvent>
+        </MenuItem>
+
+        <MenuItem>
+            <Name>BACK_BUTTON</Name>
+            <Type>Button</Type>
+            <Hotkey>B</Hotkey>
+            <State>Inactive</State>
+            <InactiveImage>/STATES/MENU/IMAGES/MAIN/OPTIONS/DISPLAY/019_PREVIOUSMENU.PCX</InactiveImage>
+            <ActiveImage>/STATES/MENU/IMAGES/MAIN/OPTIONS/DISPLAY/020_PREVIOUSMENU.PCX</ActiveImage>
+            <Position x="266" y="270" />
             <GeneratedEvent>
                 <Type>SwitchPage</Type>
                 <PageName>MenuPage_Options</PageName>

@@ -39,10 +39,7 @@ public:
         ActorComponentsMap::iterator findIter = _components.find(id);
         if (findIter != _components.end())
         {
-            StrongActorComponentPtr base(findIter->second);
-            shared_ptr<ComponentType> sub(std::static_pointer_cast<ComponentType>(base));  // cast to subclass version of the pointer
-            weak_ptr<ComponentType> weakSub(sub);  // convert strong pointer to weak pointer
-            return weakSub;  // return the weak pointer
+            return std::static_pointer_cast<ComponentType>(findIter->second);
         }
 
         return weak_ptr<ComponentType>();
@@ -56,10 +53,7 @@ public:
         ActorComponentsMap::iterator findIter = _components.find(id);
         if (findIter != _components.end())
         {
-            StrongActorComponentPtr base(findIter->second);
-            shared_ptr<ComponentType> sub(static_pointer_cast<ComponentType>(base));  // cast to subclass version of the pointer
-            weak_ptr<ComponentType> weakSub(sub);  // convert strong pointer to weak pointer
-            return weakSub;  // return the weak pointer
+            return std::static_pointer_cast<ComponentType>(findIter->second);
         }
         else
         {
@@ -80,9 +74,7 @@ public:
         ActorComponentsMap::iterator findIter = _components.find(id);
         if (findIter != _components.end())
         {
-            StrongActorComponentPtr base(findIter->second);
-            shared_ptr<ComponentType> sub(static_pointer_cast<ComponentType>(base));  // cast to subclass version of the pointer
-            return sub.get();
+            return static_cast<ComponentType*>(findIter->second.get());
         }
         
         if (bAssertNotNull)
@@ -104,8 +96,10 @@ public:
     // put them here and dont use the templated GetComponent method
     //=========================================================================
 
-    inline shared_ptr<PositionComponent> GetPositionComponent() { return m_pPositionComponent; }
-    inline shared_ptr<PhysicsComponent> GetPhysicsComponent() { return m_pPhysicsComponent; }
+    inline const shared_ptr<PositionComponent>& GetPositionComponent() const { return m_pPositionComponent; }
+    inline const shared_ptr<PhysicsComponent>& GetPhysicsComponent() const { return m_pPhysicsComponent; }
+    inline PositionComponent* GetPositionComponentRaw() const { return m_pPositionComponent.get(); }
+    inline PhysicsComponent* GetPhysicsComponentRaw() const { return m_pPhysicsComponent.get(); }
 
 private:
     friend class ActorFactory;
@@ -114,6 +108,7 @@ private:
     std::string _name;
 
     ActorComponentsMap _components;
+    std::vector<StrongActorComponentPtr> _componentsList;
 
     // Resource from which this actor was loaded
     std::string _resource;

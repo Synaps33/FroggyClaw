@@ -68,30 +68,40 @@ void SDL2TilePlaneSceneNode::VRender(Scene* pScene)
         minTileIdxY = 0;
     }
 
-    int32_t row, col;
-    for (row = startRow; row < (startRow + rowTilesToRender) && row <= maxTileIdxY; row++)
+    int32_t endRow = startRow + rowTilesToRender;
+    if (endRow > maxTileIdxY + 1) endRow = maxTileIdxY + 1;
+    if (!pProperties->isWrappedY && startRow < minTileIdxY) startRow = minTileIdxY;
+
+    int32_t endCol = startCol + colTilesToRender;
+    if (endCol > maxTileIdxX + 1) endCol = maxTileIdxX + 1;
+    if (!pProperties->isWrappedX && startCol < minTileIdxX) startCol = minTileIdxX;
+
+    const int32_t tilesOnX = pProperties->tilesOnAxisX;
+    const int32_t tilesOnY = pProperties->tilesOnAxisY;
+    const auto& imgList = *pImageList;
+
+    for (int32_t row = startRow; row < endRow; row++)
     {
         if (row < minTileIdxY)
         {
             continue;
         }
-        const int rowTileIndex = row % pProperties->tilesOnAxisY;
+        const int rowOffset = (row % tilesOnY) * tilesOnX;
+        const int32_t y = row * tilePixelHeight - parallaxCameraPosY;
 
-        for (col = startCol; col < (startCol + colTilesToRender) && col <= maxTileIdxX; col++)
+        for (int32_t col = startCol; col < endCol; col++)
         {
-            // Dont render anything out of bounds
             if (col < minTileIdxX)
             {
                 continue;
             }
-            const int colTileIndex = col % pProperties->tilesOnAxisX;
+            const int colTileIndex = col % tilesOnX;
 
-            Image* image = (*pImageList)[rowTileIndex * pProperties->tilesOnAxisX + colTileIndex];
+            Image* image = imgList[rowOffset + colTileIndex];
 
             if (image && image->GetTexture() != NULL)
             {
                 int32_t x = col * tilePixelWidth - parallaxCameraPosX;
-                int32_t y = row * tilePixelHeight - parallaxCameraPosY;
                 SDL_Rect tileRect = { x,
                     y,
                     tilePixelWidth,

@@ -148,11 +148,11 @@ bool BaseGameLogic::VEnterMenu(const char* xmlMenuResource)
 
 void RenderLoadingScreen(shared_ptr<Image> pBackground, SDL_Rect& renderRect, Point& scale, float progress)
 {
-    // While we are at it, eat incoming events
+    // Discard any queued events during level loading so they do not trigger actions
     SDL_Event evt;
     while (SDL_PollEvent(&evt))
     {
-        g_pApp->OnEvent(evt);
+        // discard
     }
 
     SDL_Renderer* pRenderer = g_pApp->GetRenderer();
@@ -195,8 +195,13 @@ bool BaseGameLogic::VLoadGame(const char* xmlLevelResource)
     float lastProgress = 0.0f;
 
     // Preload level resources
+    // On SF2000 / GB300, preloading all 452 files of a level reads ~37MB over slow SD
+    // bus, thrashing the 24MB LRU cache and taking >60 seconds. Assets are loaded
+    // on-demand anyway, so skip preloading on MIPS / SF2000.
+#if !defined(SF2000) && !defined(__mips__)
     std::string levelPath = "/LEVEL" + ToStr(m_pCurrentLevel->GetLevelNumber()) + "/*";
     g_pApp->GetResourceCache()->Preload(levelPath, NULL);
+#endif
 
     // ============== LOADING SCREEN RENDERING ==============
 
@@ -343,7 +348,7 @@ bool BaseGameLogic::VLoadGame(const char* xmlLevelResource)
         }
 
         loadingProgress += actorToPercent;
-        if ((loadingProgress - lastProgress) > 1.0f)
+        if ((loadingProgress - lastProgress) >= 10.0f)
         {
             RenderLoadingScreen(pBackgroundImage, backgroundRect, scale, loadingProgress);
             lastProgress = loadingProgress;

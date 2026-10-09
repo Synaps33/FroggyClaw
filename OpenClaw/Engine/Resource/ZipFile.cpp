@@ -159,17 +159,26 @@ bool ZipFile::Init(const std::string &resFileName)
     // Go to the beginning of the directory.
     fseek(m_pFile, dhOffset - dh.dirSize, SEEK_SET);
 
+    /* The pointer table is appended to the raw directory data, so it starts at
+     * the byte right after it - which is not necessarily 4-byte aligned. MIPS
+     * traps a misaligned word store with an address error (exception 5), and
+     * x86 quietly allows it, so this only ever showed up on the console and
+     * only for archives whose directory size happened to be unaligned. Round
+     * the table up to the next word boundary and reserve the padding. */
+    const uint32 tableOffset = (dh.dirSize + 3u) & ~3u;
+    const uint32 bufSize = tableOffset + (uint32)dh.nDirEntries * sizeof(*m_papDir);
+
     // Allocate the data buffer, and read the whole thing.
-    m_pDirData = new /*(std::nothrow)*/ char[dh.dirSize + dh.nDirEntries*sizeof(*m_papDir)];
+    m_pDirData = new /*(std::nothrow)*/ char[bufSize];
     if (!m_pDirData)
         return false;
-    memset(m_pDirData, 0, dh.dirSize + dh.nDirEntries*sizeof(*m_papDir));
+    memset(m_pDirData, 0, bufSize);
     if (fread(m_pDirData, dh.dirSize, 1, m_pFile) != 1)
         return false;
 
     // Now process each entry.
     char *pfh = m_pDirData;
-    m_papDir = (const TZipDirFileHeader **)(m_pDirData + dh.dirSize);
+    m_papDir = (const TZipDirFileHeader **)(m_pDirData + tableOffset);
 
     bool success = true;
 

@@ -527,7 +527,15 @@ namespace Util
 
     SDL_Texture* CreateSDLTextureRect(int width, int height, SDL_Color color, SDL_Renderer* pRenderer)
     {
+        if (width <= 0 || height <= 0)
+        {
+            return NULL;
+        }
         SDL_Surface* pSurface = SDL_CreateRGBSurface(0, width, height, 32, 0, 0, 0, 0);
+        if (pSurface == NULL)
+        {
+            return NULL;
+        }
         SDL_FillRect(pSurface, NULL, SDL_MapRGB(pSurface->format, color.r, color.g, color.b));
         SDL_Texture* pTextureRect = SDL_CreateTextureFromSurface(pRenderer, pSurface);
 
@@ -537,7 +545,15 @@ namespace Util
 
     SDL_Texture* CreateSDLTextureRect(int width, int height, SDL_Color color, SDL_Renderer* pRenderer, uint8_t alpha)
     {
+        if (width <= 0 || height <= 0)
+        {
+            return NULL;
+        }
         SDL_Surface* pSurface = CreateRGBSurface(0, width, height, 32);
+        if (pSurface == NULL)
+        {
+            return NULL;
+        }
         SDL_FillRect(pSurface, NULL, SDL_MapRGBA(pSurface->format, color.r, color.g, color.b, alpha));
         SDL_Texture* pTextureRect = SDL_CreateTextureFromSurface(pRenderer, pSurface);
 
@@ -546,8 +562,12 @@ namespace Util
         return pTextureRect;
     }
 
+extern "C" void libretro_force_present(void) __attribute__((weak));
+
     void RenderForcePresent(SDL_Renderer* pRenderer) {
         SDL_RenderPresent(pRenderer);
+        if (libretro_force_present)
+            libretro_force_present();
 #ifdef __EMSCRIPTEN__
         // Update screen manually. SDL_RenderPresent does nothing.
         emscripten_sleep(0);

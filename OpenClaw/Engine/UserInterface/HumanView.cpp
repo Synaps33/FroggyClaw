@@ -308,6 +308,10 @@ void HumanView::RegisterAllDelegates()
     IEventMgr::Get()->VAddListener(MakeDelegate(
         this, &HumanView::SetVolumeDelegate), EventData_Set_Volume::sk_EventType);
     IEventMgr::Get()->VAddListener(MakeDelegate(
+        this, &HumanView::SetVideoScaleDelegate), EventData_Set_Video_Scale::sk_EventType);
+    IEventMgr::Get()->VAddListener(MakeDelegate(
+        this, &HumanView::SetMaxFpsDelegate), EventData_Set_Max_Fps::sk_EventType);
+    IEventMgr::Get()->VAddListener(MakeDelegate(
         this, &HumanView::SoundEnabledChangedDelegate), EventData_Sound_Enabled_Changed::sk_EventType);
     IEventMgr::Get()->VAddListener(MakeDelegate(
         this, &HumanView::ClawDiedDelegate), EventData_Claw_Died::sk_EventType);
@@ -343,6 +347,10 @@ void HumanView::RemoveAllDelegates()
         this, &HumanView::LoadGameDelegate), EventData_Menu_LoadGame::sk_EventType);
     IEventMgr::Get()->VRemoveListener(MakeDelegate(
         this, &HumanView::SetVolumeDelegate), EventData_Set_Volume::sk_EventType);
+    IEventMgr::Get()->VRemoveListener(MakeDelegate(
+        this, &HumanView::SetVideoScaleDelegate), EventData_Set_Video_Scale::sk_EventType);
+    IEventMgr::Get()->VRemoveListener(MakeDelegate(
+        this, &HumanView::SetMaxFpsDelegate), EventData_Set_Max_Fps::sk_EventType);
     IEventMgr::Get()->VRemoveListener(MakeDelegate(
         this, &HumanView::SoundEnabledChangedDelegate), EventData_Sound_Enabled_Changed::sk_EventType);
     IEventMgr::Get()->VRemoveListener(MakeDelegate(
@@ -792,6 +800,29 @@ void HumanView::SetVolumeDelegate(IEventDataPtr pEventData)
                 g_pApp->GetAudio()->SetSoundVolume(pCastEventData->GetVolume());
             }
         }
+    }
+}
+
+void HumanView::SetVideoScaleDelegate(IEventDataPtr pEventData)
+{
+    shared_ptr<EventData_Set_Video_Scale> pCastEventData =
+        static_pointer_cast<EventData_Set_Video_Scale>(pEventData);
+
+    if (pCastEventData)
+    {
+        int currentScale = g_pApp->GetRenderScale();
+        g_pApp->SetRenderScale(currentScale + pCastEventData->GetDeltaScale());
+    }
+}
+
+void HumanView::SetMaxFpsDelegate(IEventDataPtr pEventData)
+{
+    shared_ptr<EventData_Set_Max_Fps> pCastEventData =
+        static_pointer_cast<EventData_Set_Max_Fps>(pEventData);
+
+    if (pCastEventData)
+    {
+        g_pApp->SetMaxFps(pCastEventData->GetMaxFps());
     }
 }
 

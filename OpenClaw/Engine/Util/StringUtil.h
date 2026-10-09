@@ -16,6 +16,7 @@ extern int CountLines(const std::wstring &s);
 extern bool WildcardMatch(const char *pat, const char *str);
 
 extern std::string ToStr(int num, int base = 10);
+extern std::string ToStr(long num, int base = 10);
 extern std::string ToStr(unsigned int num, int base = 10);
 extern std::string ToStr(unsigned long num, int base = 10);
 extern std::string ToStr(float num);

@@ -41,11 +41,47 @@ uint8_t directorySeparator = '/';
 /*************************** HELPER FUNCTIONS ****************************/
 /*************************************************************************/
 
+/* Position cache for the REZ stream.
+ *
+ * Walking the REZ index reads 4-byte fields back to back and the entries are
+ * contiguous, yet every field used to be fetched with an explicit seekg. That
+ * discards the stream buffer and costs an lseek plus a read syscall each time,
+ * and the index holds around 100k entries. Remembering where the stream
+ * actually is turns the whole walk into sequential reads. */
+namespace {
+std::ifstream* g_rez_stream    = NULL;
+int64_t        g_rez_streamPos = -1;
+
+inline void RezStreamSeek(std::ifstream* file, int64_t offset)
+{
+    if (file != g_rez_stream || g_rez_streamPos != offset)
+    {
+        file->seekg(offset, std::ios::beg);
+        g_rez_stream = file;
+    }
+    g_rez_streamPos = offset;
+}
+
+inline void RezStreamSkip(std::ifstream* file, int64_t bytes)
+{
+    (void)file;
+    g_rez_streamPos += bytes;
+}
+
+/* Call after anything that moves the stream behind our back. */
+inline void RezStreamForget(void)
+{
+    g_rez_stream    = NULL;
+    g_rez_streamPos = -1;
+}
+} // namespace
+
 template<typename T>
 static void FileRead(T* dest, std::ifstream* file, int32_t offset)
 {
-    file->seekg(offset, std::ios::beg);
+    RezStreamSeek(file, offset);
     file->read((char*)dest, sizeof(*dest));
+    RezStreamSkip(file, (int64_t)sizeof(*dest));
 }
 
 static char* StdStringToCharArray(std::string source)
@@ -140,11 +176,35 @@ char* WAP_GetRezFileData(RezFile* rezFile)
         std::lock_guard<std::mutex> lock(rezArchiveFileEntry->mutex);
 
         // Seek to file's offset within REZ file and load it
-        rezArchiveFileEntry->fileStream->seekg(rezFile->offset, std::ios::beg);
+        RezStreamSeek(rezArchiveFileEntry->fileStream, (int64_t)rezFile->offset);
         rezArchiveFileEntry->fileStream->read(g_rezFileDataMap[rezFile], rezFile->size);
+        RezStreamSkip(rezArchiveFileEntry->fileStream, (int64_t)rezFile->size);
     }
 
     return g_rezFileDataMap[rezFile];
+}
+
+int32_t WAP_ReadRezFileData(RezFile* rezFile, char* outBuffer)
+{
+    if ((rezFile == NULL) || (rezFile->owner == NULL) || (outBuffer == NULL))
+    {
+        return -1;
+    }
+
+    if (g_rezArchiveFileEntryMap.count(rezFile->owner) == 0)
+    {
+        return -1;
+    }
+
+    RezArchiveFileEntry* rezArchiveFileEntry = g_rezArchiveFileEntryMap[rezFile->owner];
+
+    std::lock_guard<std::mutex> lock(rezArchiveFileEntry->mutex);
+
+    RezStreamSeek(rezArchiveFileEntry->fileStream, (int64_t)rezFile->offset);
+    rezArchiveFileEntry->fileStream->read(outBuffer, rezFile->size);
+    RezStreamSkip(rezArchiveFileEntry->fileStream, (int64_t)rezFile->size);
+
+    return (int32_t)rezFile->size;
 }
 
 void WAP_FreeFileData(RezFile* rezFile)
@@ -489,12 +549,13 @@ static void ReadRezDirectory(RezArchive*& rezArchive, RezDirectory* rezDirectory
             FileRead(&(newRezDirectory->dateAndTime), fileStream, currentOffset + 12);
 
             // Move cursor to directory name's offset
-            fileStream->seekg(currentOffset + 16, std::ios::beg);
+            RezStreamSeek(fileStream, (int64_t)currentOffset + 16);
             std::string directoryName("");
             // Read directory name. Directory name is terminated by null character
             while (true)
             {
                 char c = fileStream->get();
+                RezStreamSkip(fileStream, 1);
                 if (c == 0)
                 {
                     break;
@@ -531,16 +592,18 @@ static void ReadRezDirectory(RezArchive*& rezArchive, RezDirectory* rezDirectory
             FileRead(&(newRezFile->fileId), fileStream, currentOffset + 16);
             // Extension in reverse order
             fileStream->read(newRezFile->extension, 4);
+            RezStreamSkip(fileStream, 4);
             std::reverse(newRezFile->extension, newRezFile->extension + strlen(newRezFile->extension));
             // Unknown dummy value
             FileRead(&unk, fileStream, currentOffset + 24);
 
-            fileStream->seekg(currentOffset + 28, std::ios::beg);
+            RezStreamSeek(fileStream, (int64_t)currentOffset + 28);
             std::string fileName("");
             // Read file name. File name is terminated by null character
             while (true)
             {
                 char c = fileStream->get();
+                RezStreamSkip(fileStream, 1);
                 if (c == 0)
                 {
                     break;
@@ -556,7 +619,9 @@ static void ReadRezDirectory(RezArchive*& rezArchive, RezDirectory* rezDirectory
 
             // Random NULL char
             char c = fileStream->get();
-            
+            RezStreamSkip(fileStream, 1);
+            (void)c;
+
             bytesRead = 28 + fileName.length() + 1 + 1;
             remainingBytes -= bytesRead;
             currentOffset += bytesRead;
@@ -626,6 +691,7 @@ RezArchive* WAP_LoadRezArchive(const char* rezFilePath)
     uint32_t expectedRezArchiveSize = rezArchive->rootDirectory->offset + rezArchive->rootDirectory->size;
     // Get actual size of file we opened
     fileStream->seekg(0, std::ios::end);
+    RezStreamForget();
     std::streamoff actualLoadedFileSize = fileStream->tellg();
     // If this check fails, we did not load valid REZ file
     if (expectedRezArchiveSize != actualLoadedFileSize)

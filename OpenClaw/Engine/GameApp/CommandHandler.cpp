@@ -175,6 +175,13 @@ void CommandHandler::HandleCommand(const char* command, void* userdata)
         wasCommandExecuted = true;
     }
 
+    // "maxfps 30" caps the frame rate, "maxfps 0" lifts the cap.
+    if (commandStr.find("maxfps ") != std::string::npos && commandArgs.size() == 2)
+    {
+        g_pApp->SetMaxFps(std::stoi(commandArgs[1]));
+        wasCommandExecuted = true;
+    }
+
     if (commandStr == "reload levelmetadata")
     {
         g_pApp->ReadLevelMetadata(g_pApp->m_GameOptions);

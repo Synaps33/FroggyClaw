@@ -9,8 +9,11 @@ bool CollisionComponent::VInit(TiXmlElement* data)
     TiXmlElement* collisionSizeElement = data->FirstChildElement("CollisionSize");
     if (collisionSizeElement != NULL)
     {
-        collisionSizeElement->Attribute("width", &_collisionWidth);
-        collisionSizeElement->Attribute("height", &_collisionHeight);
+        int w = 0, h = 0;
+        collisionSizeElement->Attribute("width", &w);
+        collisionSizeElement->Attribute("height", &h);
+        _collisionWidth = w;
+        _collisionHeight = h;
     }
     else
     {

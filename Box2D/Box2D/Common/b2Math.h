@@ -633,10 +633,10 @@ inline b2Mat22 b2Abs(const b2Mat22& A)
 	return b2Mat22(b2Abs(A.ex), b2Abs(A.ey));
 }
 
-template <typename T>
-inline T b2Min(T a, T b)
+template <typename T, typename U>
+inline T b2Min(T a, U b)
 {
-	return a < b ? a : b;
+	return a < (T)b ? a : (T)b;
 }
 
 inline b2Vec2 b2Min(const b2Vec2& a, const b2Vec2& b)
@@ -644,10 +644,10 @@ inline b2Vec2 b2Min(const b2Vec2& a, const b2Vec2& b)
 	return b2Vec2(b2Min(a.x, b.x), b2Min(a.y, b.y));
 }
 
-template <typename T>
-inline T b2Max(T a, T b)
+template <typename T, typename U>
+inline T b2Max(T a, U b)
 {
-	return a > b ? a : b;
+	return a > (T)b ? a : (T)b;
 }
 
 inline b2Vec2 b2Max(const b2Vec2& a, const b2Vec2& b)

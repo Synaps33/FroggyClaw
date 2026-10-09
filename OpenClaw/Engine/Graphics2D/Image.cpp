@@ -78,32 +78,12 @@ static void PutPixel(SDL_Surface *surface, int x, int y, Uint32 pixel)
 
 SDL_Texture* Image::GetTextureFromPid(WapPid* pid, SDL_Renderer* renderer)
 {
-    assert(pid != NULL);
-    assert(renderer != NULL);
-    
-    uint32_t width = pid->width;
-    uint32_t height = pid->height;
-
-    SDL_Surface* surface = Util::CreateRGBSurface(0, width, height, 32);
-    assert(surface != NULL);
-
-    uint32_t colorIdx;
-    uint32_t colorsCount = pid->colorsCount;
-    for (colorIdx = 0; colorIdx < colorsCount; colorIdx++)
+    if (pid == NULL || renderer == NULL)
     {
-        WAP_ColorRGBA color = pid->colors[colorIdx];
-        uint32_t x = colorIdx % width;
-        uint32_t y = colorIdx / width;
-
-        PutPixel(surface, x, y, SDL_MapRGBA(surface->format, color.r, color.g, color.b, color.a));
+        return NULL;
     }
 
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-    assert(texture != NULL);
-
-    SDL_FreeSurface(surface);
-
-    return texture;
+    return SDL_CreateTextureFromPid(pid);
 }
 
 Image* Image::CreateImage(WapPid* pid, SDL_Renderer* renderer)

@@ -34,6 +34,9 @@ TiXmlElement* CreateDefaultFontConfig();
 TiXmlElement* CreateDefaultAssetsConfig();
 TiXmlDocument CreateDefaultConfig();
 
+extern "C" void retro_set_render_scale(int scale_percent) __attribute__((weak));
+extern "C" void retro_set_max_fps(int max_fps) __attribute__((weak));
+
 BaseGameApp* g_pApp = NULL;
 
 BaseGameApp::BaseGameApp()
@@ -78,9 +81,11 @@ bool BaseGameApp::Initialize(int argc, char** argv)
         return false;
     }
 
+#if !defined(SF2000) && !defined(__mips__)
     m_pResourceMgr->VPreload("/CLAW/*", NULL, ORIGINAL_RESOURCE);
     m_pResourceMgr->VPreload("/GAME/*", NULL, ORIGINAL_RESOURCE);
     m_pResourceMgr->VPreload("/STATES/*", NULL, ORIGINAL_RESOURCE);
+#endif
 
     m_pResourceMgr->VPreload("*", NULL, CUSTOM_RESOURCE);
 
@@ -439,6 +444,8 @@ HumanView* BaseGameApp::GetHumanView() const
 
 bool BaseGameApp::LoadGameOptions(const char* inConfigFile)
 {
+    m_ConfigFilePath = (inConfigFile != NULL) ? inConfigFile : "config.xml";
+
     TiXmlDocument m_XmlConfiguration;
     if (!m_XmlConfiguration.LoadFile(inConfigFile))
     {
@@ -475,6 +482,25 @@ bool BaseGameApp::LoadGameOptions(const char* inConfigFile)
             displayElem->FirstChildElement("IsFullscreen"));
         ParseValueFromXmlElem(&m_GameOptions.isFullscreenDesktop,
             displayElem->FirstChildElement("IsFullscreenDesktop"));
+        if (!ParseValueFromXmlElem(&m_GameOptions.renderScale,
+            displayElem->FirstChildElement("RenderScale")))
+        {
+            m_GameOptions.renderScale = 80;
+        }
+        else
+        {
+            if (m_GameOptions.renderScale < 50) m_GameOptions.renderScale = 50;
+            if (m_GameOptions.renderScale > 100) m_GameOptions.renderScale = 100;
+        }
+        if (!ParseValueFromXmlElem(&m_GameOptions.maxFps,
+            displayElem->FirstChildElement("MaxFps")))
+        {
+            m_GameOptions.maxFps = 30;
+        }
+        else if (m_GameOptions.maxFps != 0 && m_GameOptions.maxFps < 10)
+        {
+            m_GameOptions.maxFps = 10;
+        }
     }
 
 #ifdef __EMSCRIPTEN__
@@ -725,13 +751,125 @@ bool BaseGameApp::LoadGameOptions(const char* inConfigFile)
             pDebugOptionsRootElem->FirstChildElement("SkipMenuToLevel"));
     }
 
+    if (retro_set_render_scale)
+    {
+        retro_set_render_scale(m_GameOptions.renderScale);
+    }
+
+    if (retro_set_max_fps)
+    {
+        retro_set_max_fps(m_GameOptions.maxFps);
+    }
+
     return true;
+}
+
+void BaseGameApp::SetRenderScale(int scale)
+{
+    if (scale < 50) scale = 50;
+    if (scale > 100) scale = 100;
+    m_GameOptions.renderScale = scale;
+
+    if (retro_set_render_scale)
+    {
+        retro_set_render_scale(scale);
+    }
+
+    SaveGameOptions();
+}
+
+void BaseGameApp::SetMaxFps(int fps)
+{
+    if (fps < 0) fps = 0;
+    if (fps != 0 && fps < 10) fps = 10;
+    m_GameOptions.maxFps = fps;
+
+    if (retro_set_max_fps)
+    {
+        retro_set_max_fps(fps);
+    }
+
+    SaveGameOptions();
 }
 
 void BaseGameApp::SaveGameOptions(const char* outConfigFile)
 {
-    LOG_ERROR("Not implemented yet!");
-    return;
+    const char* filePath = outConfigFile;
+    if ((filePath == NULL || strlen(filePath) == 0) && !m_ConfigFilePath.empty())
+    {
+        filePath = m_ConfigFilePath.c_str();
+    }
+    if (filePath == NULL || strlen(filePath) == 0)
+    {
+        filePath = "config.xml";
+    }
+
+    TiXmlDocument doc;
+    if (!doc.LoadFile(filePath))
+    {
+        TiXmlElement* root = new TiXmlElement("Configuration");
+        doc.LinkEndChild(root);
+    }
+
+    TiXmlElement* root = doc.RootElement();
+    if (!root)
+        return;
+
+    TiXmlElement* display = root->FirstChildElement("Display");
+    if (!display)
+    {
+        display = new TiXmlElement("Display");
+        root->LinkEndChild(display);
+    }
+
+    TiXmlElement* renderScaleElem = display->FirstChildElement("RenderScale");
+    if (!renderScaleElem)
+    {
+        renderScaleElem = new TiXmlElement("RenderScale");
+        display->LinkEndChild(renderScaleElem);
+    }
+
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%d", m_GameOptions.renderScale);
+    renderScaleElem->Clear();
+    renderScaleElem->LinkEndChild(new TiXmlText(buf));
+
+    TiXmlElement* maxFpsElem = display->FirstChildElement("MaxFps");
+    if (!maxFpsElem)
+    {
+        maxFpsElem = new TiXmlElement("MaxFps");
+        display->LinkEndChild(maxFpsElem);
+    }
+
+    snprintf(buf, sizeof(buf), "%d", m_GameOptions.maxFps);
+    maxFpsElem->Clear();
+    maxFpsElem->LinkEndChild(new TiXmlText(buf));
+
+    if (m_pAudio)
+    {
+        TiXmlElement* audio = root->FirstChildElement("Audio");
+        if (!audio)
+        {
+            audio = new TiXmlElement("Audio");
+            root->LinkEndChild(audio);
+        }
+        TiXmlElement* soundVolElem = audio->FirstChildElement("SoundVolume");
+        if (soundVolElem)
+        {
+            snprintf(buf, sizeof(buf), "%d", m_pAudio->GetSoundVolume());
+            soundVolElem->Clear();
+            soundVolElem->LinkEndChild(new TiXmlText(buf));
+        }
+        TiXmlElement* musicVolElem = audio->FirstChildElement("MusicVolume");
+        if (musicVolElem)
+        {
+            snprintf(buf, sizeof(buf), "%d", m_pAudio->GetMusicVolume());
+            musicVolElem->Clear();
+            musicVolElem->LinkEndChild(new TiXmlText(buf));
+        }
+    }
+
+    doc.SaveFile(filePath);
 }
 
 //=====================================================================================================================
@@ -859,8 +997,18 @@ bool BaseGameApp::InitializeResources(GameOptions& gameOptions)
 
     std::string rezArchivePath = gameOptions.assetsFolder + gameOptions.rezArchive;
 
+    unsigned cacheSize = gameOptions.resourceCacheSize;
+#if defined(SF2000) || defined(__mips__)
+    /* SF2000 / GB300 multicore has a 52MB contiguous heap (gp_buf_64m).
+     * Clamping the LRU resource cache to 12MB keeps total heap well under
+     * 36MB even with all level actors loaded, preventing sbrk OOM. */
+    if (cacheSize > 12) {
+        cacheSize = 12;
+    }
+#endif
+
     IResourceFile* rezArchive = new ResourceRezArchive(rezArchivePath);
-    std::shared_ptr<ResourceCache> m_pResourceCache { new ResourceCache(gameOptions.resourceCacheSize, rezArchive, ORIGINAL_RESOURCE) };
+    std::shared_ptr<ResourceCache> m_pResourceCache { new ResourceCache(cacheSize, rezArchive, ORIGINAL_RESOURCE) };
     if (!m_pResourceCache->Init())
     {
         LOG_ERROR("Failed to initialize resource cachce from resource file: " + std::string(rezArchivePath));
@@ -880,7 +1028,11 @@ bool BaseGameApp::InitializeResources(GameOptions& gameOptions)
     std::string customArchivePath = gameOptions.assetsFolder + gameOptions.customArchive;
 
     IResourceFile* pCustomArchive = new ResourceZipArchive(customArchivePath);
-    std::shared_ptr<ResourceCache> pCustomCache{ new ResourceCache(50, pCustomArchive, CUSTOM_RESOURCE) };
+    unsigned customCacheSize = 50;
+#if defined(SF2000) || defined(__mips__)
+    customCacheSize = 2;
+#endif
+    std::shared_ptr<ResourceCache> pCustomCache{ new ResourceCache(customCacheSize, pCustomArchive, CUSTOM_RESOURCE) };
     if (!pCustomCache->Init())
     {
         LOG_ERROR("Failed to initialize resource cachce from resource file: " + customArchivePath);
@@ -1429,6 +1581,8 @@ TiXmlElement* CreateDefaultDisplayConfig()
     XML_ADD_TEXT_ELEMENT("UseVerticalSync", "true", display);
     XML_ADD_TEXT_ELEMENT("IsFullscreen", "false", display);
     XML_ADD_TEXT_ELEMENT("IsFullscreenDesktop", "false", display);
+    XML_ADD_TEXT_ELEMENT("RenderScale", "80", display);
+    XML_ADD_TEXT_ELEMENT("MaxFps", "30", display);
 
     return display;
 }

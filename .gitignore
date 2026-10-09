@@ -43,5 +43,6 @@ build/
 build_native/
 frames/
 Build_Release/claw
+Build_Release/openclaw
 Build_Release/claw.gba
 config.xml

@@ -89,19 +89,27 @@ void LocalAmbientSoundComponent::VOnActorLeftTrigger(Actor* pActorWhoLeft, Fixtu
 
 void LocalAmbientSoundComponent::PlayAmbientSound()
 {
-    assert(m_SoundChannel == -1);
-    assert(m_pActorInArea != NULL);
+    if (m_SoundChannel != -1 || m_pActorInArea == NULL)
+        return;
 
 #ifndef __EMSCRIPTEN__
     m_SoundChannel = Mix_GroupAvailable(1);
-    assert(m_SoundChannel != -1 && "Could not get a channel from channel group");
+    if (m_SoundChannel == -1)
+    {
+        LOG_WARNING("Could not get a channel from channel group 1");
+        return;
+    }
 #else
     // TODO: [EMSCRIPTEN] Try to implement Mix_Group* functions
     m_SoundChannel = -1;
 #endif
 
     shared_ptr<Mix_Chunk> pSound = WavResourceLoader::LoadAndReturnSound(m_Properties.sound.c_str());
-    assert(pSound != nullptr);
+    if (pSound == nullptr)
+    {
+        m_SoundChannel = -1;
+        return;
+    }
 
 #ifndef __EMSCRIPTEN__
     int globalVolume = (int)((((float)g_pApp->GetAudio()->GetSoundVolume()) / 100.0f) * (float)MIX_MAX_VOLUME);
@@ -120,7 +128,8 @@ void LocalAmbientSoundComponent::PlayAmbientSound()
 
 void LocalAmbientSoundComponent::StopAmbientSound()
 {
-    assert(m_SoundChannel != -1);
+    if (m_SoundChannel == -1)
+        return;
 
     Mix_HaltChannel(m_SoundChannel);
     m_SoundChannel = -1;
@@ -128,6 +137,9 @@ void LocalAmbientSoundComponent::StopAmbientSound()
 
 void LocalAmbientSoundComponent::UpdateAmbientSound()
 {
+    if (m_SoundChannel == -1)
+        return;
+
 #ifdef __EMSCRIPTEN__
     // TODO: [EMSCRIPTEN] Try to implement Mix_SetDistance
     return;

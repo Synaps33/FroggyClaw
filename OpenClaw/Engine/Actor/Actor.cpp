@@ -64,13 +64,14 @@ void Actor::Destroy()
     m_pPositionComponent.reset();
     m_pPhysicsComponent.reset();
     _components.clear();
+    _componentsList.clear();
 }
 
 void Actor::Update(uint32 msDiff)
 {
-    for (auto &component : _components)
+    for (size_t i = 0; i < _componentsList.size(); ++i)
     {
-        component.second->VUpdate(msDiff);
+        _componentsList[i]->VUpdate(msDiff);
     }
 }
 
@@ -87,12 +88,13 @@ void Actor::AddComponent(StrongActorComponentPtr component)
         _components.insert(std::make_pair(component->VGetId(), component));
 
     assert(success.second);
+    _componentsList.push_back(component);
 }
 
 void Actor::OnWorldFinishedLoading()
 {
-    for (const auto& componentPair : _components)
+    for (const auto& component : _componentsList)
     {
-        componentPair.second->VOnWorldFinishedLoading();
+        component->VOnWorldFinishedLoading();
     }
 }

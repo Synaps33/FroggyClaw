@@ -73,6 +73,8 @@ protected:
     void RequestResetLevelDelegate(IEventDataPtr pEventData);
     void LoadGameDelegate(IEventDataPtr pEventData);
     void SetVolumeDelegate(IEventDataPtr pEventData);
+    void SetVideoScaleDelegate(IEventDataPtr pEventData);
+    void SetMaxFpsDelegate(IEventDataPtr pEventData);
     void SoundEnabledChangedDelegate(IEventDataPtr pEventData);
     void ClawDiedDelegate(IEventDataPtr pEventData);
     void TeleportActorDelegate(IEventDataPtr pEventData);

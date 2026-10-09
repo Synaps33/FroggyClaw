@@ -116,6 +116,15 @@ LIBWAP_API uint8_t WAP_GetDirectorySeparator();
 LIBWAP_API char* WAP_GetRezFileData(RezFile* rezFile);
 
 /**
+ * @brief Reads data directly from RezFile into provided buffer without extra allocation
+ *
+ * @param rezFile Pointer to RezFile structure
+ * @param outBuffer Destination buffer (must be at least rezFile->size bytes)
+ * @return Bytes read, or -1 on failure
+ */
+LIBWAP_API int32_t WAP_ReadRezFileData(RezFile* rezFile, char* outBuffer);
+
+/**
  * @brief Frees data buffer allocated by WAP_GetRezFileData function
  * @note All REZ file datas allocated by this function are automatically freed upon destroying RezArchive
  *
