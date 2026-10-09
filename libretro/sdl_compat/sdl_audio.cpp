@@ -469,7 +469,12 @@ void sdl_compat_render_audio(int16_t* out, size_t frames)
     if (!s_audio_open)
         return;
 
-    int active_indices[16];
+    /* One slot per allocatable channel: s_num_channels can be as high as
+     * MIX_MAX_CHANNELS, and indexing this array with the channel number used
+     * to overflow a 16-entry buffer once the engine allocated more channels
+     * than that (its default is 24). The overflow landed on this function's
+     * saved registers and corrupted whatever ran next. */
+    int active_indices[MIX_MAX_CHANNELS];
     int n_active = 0;
     for (int i = 0; i < s_num_channels; i++) {
         if (s_voices[i].active && s_voices[i].chunk != NULL)
@@ -491,6 +496,15 @@ void sdl_compat_render_audio(int16_t* out, size_t frames)
 
             if (!v->active || v->chunk == NULL)
                 continue;
+
+            /* Guard against a voice pointing at a chunk that is not really
+             * one: on MIPS the very first field load traps with an address
+             * error and takes the console down, whereas here the voice can
+             * simply be retired. */
+            if (((uintptr_t)v->chunk & 3u) != 0) {
+                memset(v, 0, sizeof(*v));
+                continue;
+            }
 
             pcm = &chunk_pcm(v->chunk)->pcm;
             if (pcm->samples == NULL || pcm->channels == 0) {
