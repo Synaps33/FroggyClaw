@@ -4,6 +4,8 @@ Captain Claw (1997) as a libretro core for the **Data Frog SF2000** and **GB300*
 
 The original 1997 game needs a CD drive and a Pentium. This port renders it straight into the console's 320x240 RGB565 framebuffer, replaces SDL2 with a small software backend, and packs everything the engine needs into one static binary.
 
+Prebuilt binaries are on the [releases page](https://github.com/Synaps33/FroggyClaw/releases) — it contains both console cores, the engine assets and a default config, plus an `INSTALL.txt` with the exact card layout. No game data is included.
+
 ---
 
 ## What this is
