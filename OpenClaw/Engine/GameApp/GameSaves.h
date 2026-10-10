@@ -214,15 +214,24 @@ public:
             pLevel; pLevel = pLevel->NextSiblingElement("Level"))
         {
             LevelSave levelSave(pLevel);
-            assert(levelSave.levelNumber <= LEVELS_COUNT);
+            /* A corrupted or hand-edited saves file must not abort the core:
+             * skip entries outside the level range instead of asserting. */
+            if (levelSave.levelNumber > LEVELS_COUNT)
+            {
+                LOG_ERROR("Skipping save for out-of-range level: "
+                    + ToStr(levelSave.levelNumber));
+                continue;
+            }
 
             m_LevelSaveMap[levelSave.levelNumber] = levelSave;
         }
 
         if (m_LevelSaveMap.empty())
         {
+            /* Parseable file without usable level entries: same recovery as
+             * a missing or truncated one, the game starts from level 1. */
             LOG_ERROR("No saves were found. There should always be atleast first level.");
-            return false;
+            InitializeWithAllLevels();
         }
 
         return true;

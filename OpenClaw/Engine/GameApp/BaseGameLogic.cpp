@@ -94,9 +94,14 @@ bool BaseGameLogic::Initialize()
     gameSaves.LoadFile();
     if (gameSaves.Error())
     {
+        /* A saves file truncated by a crash or a power cut must not brick
+         * the core: rebuild the default level saves and keep booting. The
+         * stored progress is unrecoverable anyway. */
         LOG_ERROR("Error while loading " + savesFilePath
-             + ": " + std::string(gameSaves.ErrorDesc()));
-        return false;
+             + ": " + std::string(gameSaves.ErrorDesc())
+             + " - rebuilding default saves");
+        m_pGameSaveMgr->InitializeWithAllLevels();
+        return true;
     }
 
     if (!m_pGameSaveMgr->Initialize(gameSaves.RootElement()))
