@@ -39,6 +39,25 @@ static int s_out_x_num = 1, s_out_x_den = 1;
 static int s_out_y_num = 1, s_out_y_den = 1;
 static int s_window_w = 640, s_window_h = 480;
 
+/* Live texture pixel bytes (RGB565 + 1-bit alpha masks). These allocations
+ * are invisible to the engine's resource-cache accounting, which made them
+ * the prime suspect in the 52MB handheld heap OOMs. */
+static size_t s_tex_bytes = 0;
+
+size_t sdl_compat_texture_bytes(void)
+{
+    return s_tex_bytes;
+}
+
+static size_t tex_footprint(const SDL_Texture* t)
+{
+    size_t n = (size_t)t->w * (size_t)t->h * sizeof(uint16_t);
+
+    if (t->alphamask != NULL)
+        n += (size_t)t->mask_stride_words * (size_t)t->h * sizeof(uint32_t);
+    return n;
+}
+
 static int int_gcd(int a, int b)
 {
     while (b != 0) {
@@ -450,6 +469,7 @@ SDL_Texture* SDL_CreateTextureFromSurface(SDL_Renderer* r, SDL_Surface* surface)
     }
 
     t->format = any_transparent ? SDL_PIXELFORMAT_ARGB8888 : SDL_PIXELFORMAT_RGB565;
+    s_tex_bytes += tex_footprint(t);
     return t;
 }
 
@@ -514,6 +534,7 @@ SDL_Texture* SDL_CreateTextureFromPid(const void* vpid)
     }
 
     t->format = any_transparent ? SDL_PIXELFORMAT_ARGB8888 : SDL_PIXELFORMAT_RGB565;
+    s_tex_bytes += tex_footprint(t);
     return t;
 }
 
@@ -528,6 +549,7 @@ SDL_Texture* SDL_CreateTexture(SDL_Renderer* renderer, Uint32 format, int access
     t->w = w; t->h = h;
     t->format = format;
     t->pixels565 = (uint16_t*)calloc((size_t)w * h, sizeof(uint16_t));
+    s_tex_bytes += (size_t)w * h * sizeof(uint16_t);
     t->alpha_mod = 255;
     t->r_mod = 255; t->g_mod = 255; t->b_mod = 255;
     t->blendMode = SDL_BLENDMODE_BLEND;
@@ -538,6 +560,7 @@ void SDL_DestroyTexture(SDL_Texture* t)
 {
     if (t == NULL)
         return;
+    s_tex_bytes -= tex_footprint(t);
     free(t->pixels565);
     free(t->alphamask);
     free(t);

@@ -23,6 +23,11 @@ void sdl_compat_advance_ticks(uint32_t ms);
 void sdl_compat_reset(void);
 void SDL_SetLogEnabled(int enabled);
 
+/* Memory diagnostics: live bytes owned by the compat layer, for the sbrk
+ * OOM hunt on the 52MB handheld heap. */
+size_t sdl_compat_texture_bytes(void);
+size_t sdl_compat_audio_bytes(void);
+
 #ifdef __cplusplus
 }
 #endif

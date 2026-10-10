@@ -183,6 +183,9 @@ public:
 
     void MemoryHasBeenFreed(uint32 size);
 
+    /* Live raw bytes charged against the cache budget (diagnostics). */
+    uint64 GetAllocated() const { return _allocated; }
+
 protected:
     bool MakeRoom(uint32 size);
     char* Allocate(uint32 size);

@@ -34,6 +34,15 @@ static Uint16  s_spec_format = 0;
 static int     s_spec_channels = 0;
 static bool    s_audio_open = false;
 static int     s_music_volume = MIX_MAX_VOLUME;
+
+/* Live decoded-PCM bytes across all Mix_Chunks; the WAV files themselves sit
+ * in the resource cache, but this decoded copy is unaccounted there. */
+static size_t  s_wav_bytes = 0;
+
+size_t sdl_compat_audio_bytes(void)
+{
+    return s_wav_bytes;
+}
 static char    s_mix_error[128] = {0};
 
 /* Mix_Chunk sample data, always normalised to signed 16-bit. */
@@ -261,6 +270,7 @@ static Mix_Chunk* make_chunk_from_wav(const Uint8* wav, size_t wav_len, bool tak
     c->freq = priv->pcm.freq;
     c->channels = priv->pcm.channels;
     c->bits = 16;
+    s_wav_bytes += c->alen;
     return c;
 }
 
@@ -305,6 +315,7 @@ void Mix_FreeChunk(Mix_Chunk* c)
     Mix_HaltChannel(-1);
     if (c->abuf != NULL) {
         chunk_priv_t* priv = (chunk_priv_t*)c->abuf;
+        s_wav_bytes -= c->alen;
         free(priv->pcm.samples);
         free(priv);
     }

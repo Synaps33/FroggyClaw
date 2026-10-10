@@ -30,6 +30,7 @@
 #include "sdl_compat.h"
 
 #include "ClawGameApp.h"
+#include "Engine/Resource/ResourceCache.h"
 
 #if defined(__mips__)
 extern "C" void lcd_bsod(const char *fmt, ...) __attribute__((noreturn));
@@ -332,10 +333,17 @@ static void core_log(enum retro_log_level level, const char* fmt, ...)
 extern "C" void retro_mem_log(const char* tag)
 {
     struct mallinfo mi = mallinfo();
+    unsigned cache_kb = 0;
 
-    core_log(RETRO_LOG_INFO, "MEM %s: heap=%u KB",
-        tag != NULL ? tag : "?", (unsigned)(mi.uordblks / 1024));
+    if (s_app != NULL && s_app->GetResourceCache() != NULL)
+        cache_kb = (unsigned)(s_app->GetResourceCache()->GetAllocated() / 1024);
+
+    core_log(RETRO_LOG_INFO, "MEM %s: heap=%u KB tex=%u KB wav=%u KB cache=%u KB",
+        tag != NULL ? tag : "?", (unsigned)(mi.uordblks / 1024),
+        (unsigned)(sdl_compat_texture_bytes() / 1024),
+        (unsigned)(sdl_compat_audio_bytes() / 1024), cache_kb);
 }
+
 
 /* --------------------------------------------------------------- utilities */
 
