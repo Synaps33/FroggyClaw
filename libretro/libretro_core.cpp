@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <malloc.h>
 #include <exception>
 #include <typeinfo>
 #include <cxxabi.h>
@@ -322,6 +323,18 @@ static void core_log(enum retro_log_level level, const char* fmt, ...)
         logger.log(level, "[openclaw] %s\n", buf);
     else
         fprintf(stderr, "[openclaw] %s\n", buf);
+}
+
+/* Heap watermark for chasing the handheld sbrk OOMs: mallinfo().uordblks is
+ * the total malloc'd bytes of the core heap. The engine calls this through a
+ * weak symbol at load/unload boundaries, and retro_run samples it every two
+ * seconds so a session log shows the whole growth curve. */
+extern "C" void retro_mem_log(const char* tag)
+{
+    struct mallinfo mi = mallinfo();
+
+    core_log(RETRO_LOG_INFO, "MEM %s: heap=%u KB",
+        tag != NULL ? tag : "?", (unsigned)(mi.uordblks / 1024));
 }
 
 /* --------------------------------------------------------------- utilities */
@@ -762,6 +775,19 @@ void retro_run(void)
 {
     if (!s_loaded || s_app == NULL)
         return;
+
+#if defined(SF2000) || defined(__mips__)
+    /* Two-second heap watermark (30 FPS target) for OOM diagnosis. */
+    {
+        static uint32_t s_mem_tick = 0;
+
+        if (++s_mem_tick >= 60)
+        {
+            s_mem_tick = 0;
+            retro_mem_log("tick");
+        }
+    }
+#endif
 
     /* Hold the frame back until its slot is due, so the game keeps real time
      * instead of running as fast as the console can execute it. */

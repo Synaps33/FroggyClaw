@@ -32,6 +32,11 @@
 //#include <thread>
 #include <iostream>
 
+/* Heap watermark provided by the libretro glue (see libretro_core.cpp);
+ * absent when the engine is built standalone. */
+extern "C" void retro_mem_log(const char* tag) __attribute__((weak));
+#define MEM_LOG(tag) do { if (retro_mem_log) retro_mem_log(tag); } while (0)
+
 //=================================================================================================
 //
 // BaseGameLogic implementation
@@ -361,6 +366,7 @@ bool BaseGameLogic::VLoadGame(const char* xmlLevelResource)
     }
 
     // Load game save data
+    MEM_LOG("load-actors-done");
     const CheckpointSave* pCheckpointSave = m_pGameSaveMgr->GetCheckpointSave(
         m_pCurrentLevel->m_LeveNumber, m_pCurrentLevel->m_LoadedCheckpoint);
     assert(pCheckpointSave != NULL);
@@ -462,6 +468,7 @@ bool BaseGameLogic::VLoadGame(const char* xmlLevelResource)
 
     SAFE_DELETE(pXmlLevelRoot);
 
+    MEM_LOG("load-done");
     return true;
 }
 
@@ -519,7 +526,9 @@ bool BaseGameLogic::VLoadScoreScreen(const char* xmlScoreScreenResource)
     }
 
     // Unload the finished level
+    MEM_LOG("score-before-unload");
     UnloadLevel();
+    MEM_LOG("score-after-unload");
 
     // Gather information about collected treasure items
     for (TiXmlElement* pScoreRowElem = pScoreScreenRootElem->FirstChildElement("ScoreRow");
@@ -1274,6 +1283,8 @@ void BaseGameLogic::UnloadLevel()
     //m_pCurrentLevel.reset();
 
     m_pPhysics.reset();
+
+    MEM_LOG("unload-done");
 }
 
 void BaseGameLogic::VResetLevel()
@@ -1295,6 +1306,8 @@ void BaseGameLogic::VResetLevel()
 
     // Reset physics. TODO: is replacing pointer which is shared between multiple classes OK like this ?
     m_pPhysics.reset(CreateClawPhysics());
+
+    MEM_LOG("reset-destroyed");
 
     // Load new level
     VChangeState(GameState_LoadingLevel);
