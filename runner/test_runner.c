@@ -182,6 +182,7 @@ int main(int argc, char** argv)
     const char* rom_path  = (argc > 2) ? argv[2] : NULL;
     int total_frames = (argc > 3) ? atoi(argv[3]) : 300;
     int dump_every = (argc > 4) ? atoi(argv[4]) : 30;
+    int render_scale = (argc > 5) ? atoi(argv[5]) : 0;
     int i, phase;
     double worst = 0.0, total = 0.0, best = 1e30;
     double steady_total = 0.0;
@@ -247,6 +248,13 @@ int main(int argc, char** argv)
 
     memset(&game, 0, sizeof(game));
     game.path = rom_path;
+    if (render_scale > 0) {
+        void (*set_render_scale)(int) = sym("retro_set_render_scale");
+        set_render_scale(render_scale);
+        retro_get_system_av_info(&av);
+        printf("[TEST] av after scale %d: %ux%u\n", render_scale,
+               av.geometry.base_width, av.geometry.base_height);
+    }
     if (!retro_load_game(&game)) {
         fprintf(stderr, "retro_load_game failed\n");
         retro_deinit();

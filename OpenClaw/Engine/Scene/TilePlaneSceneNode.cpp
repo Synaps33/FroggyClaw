@@ -69,16 +69,40 @@ void SDL2TilePlaneSceneNode::VRender(Scene* pScene)
     }
 
     int32_t endRow = startRow + rowTilesToRender;
-    if (endRow > maxTileIdxY + 1) endRow = maxTileIdxY + 1;
+    /* Wrapped planes set maxTileIdx to INT32_MAX as a "no clamp" sentinel;
+     * adding 1 to it is signed overflow (UB) and wrapped to INT32_MIN here,
+     * making the render loops below execute zero times - the whole
+     * parallax Background plane rendered as black. Skip the clamp entirely
+     * for wrapped planes; the modulo inside the loop handles the wrap. */
+    if (maxTileIdxY != INT32_MAX && endRow > maxTileIdxY + 1) endRow = maxTileIdxY + 1;
     if (!pProperties->isWrappedY && startRow < minTileIdxY) startRow = minTileIdxY;
 
     int32_t endCol = startCol + colTilesToRender;
-    if (endCol > maxTileIdxX + 1) endCol = maxTileIdxX + 1;
+    if (maxTileIdxX != INT32_MAX && endCol > maxTileIdxX + 1) endCol = maxTileIdxX + 1;
     if (!pProperties->isWrappedX && startCol < minTileIdxX) startCol = minTileIdxX;
 
     const int32_t tilesOnX = pProperties->tilesOnAxisX;
     const int32_t tilesOnY = pProperties->tilesOnAxisY;
     const auto& imgList = *pImageList;
+
+    /* One-shot diagnostics for the handheld black-background report: tells
+     * us whether the plane draws zero tiles (bounds), null images (load
+     * failure) or renders normally. Reaches Multicore.log via SDL_Log. */
+    {
+        static int s_diag_budget = 8;
+        if (s_diag_budget > 0)
+        {
+            int nonNull = 0;
+            for (size_t i = 0; i < imgList.size(); i++)
+                if (imgList[i] && imgList[i]->GetTexture() != NULL) nonNull++;
+            SDL_Log("PLANE %s: cam=%d,%d,%d,%d par=%.0f,%.0f range c%d..%d r%d..%d tilesOn=%dx%d imgList=%d nonNull=%d drawn_pass=%d",
+                pProperties->name.c_str(), cameraRect.x, cameraRect.y, cameraRect.w, cameraRect.h,
+                parallaxCameraPosX, parallaxCameraPosY,
+                startCol, endCol, startRow, endRow, tilesOnX, tilesOnY,
+                (int)imgList.size(), nonNull, (int)VGetProperties()->GetRenderPass());
+            s_diag_budget--;
+        }
+    }
 
     for (int32_t row = startRow; row < endRow; row++)
     {
