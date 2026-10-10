@@ -14,6 +14,11 @@ public:
     void LoadWwd(char* rawBuffer, uint32 size);
     WapWwd* GetWwd() { return _wapWorldLevel; }
 
+    /* Free the parsed level structs while keeping the cache handle (and its
+     * raw bytes) alive; LoadAndReturnWwd re-parses on next use. Lets the
+     * handheld drop the parsed duplicate during actor spawning. */
+    void ReleaseWwd();
+
 private:
     WapWwd* _wapWorldLevel;
 };
@@ -28,6 +33,7 @@ public:
     virtual bool VLoadResource(char* rawBuffer, uint32 rawSize, std::shared_ptr<ResourceHandle> handle);
 
     static WapWwd* LoadAndReturnWwd(const char* resourceString);
+    static void ReleaseCachedWwd(const char* resourceString);
     static std::shared_ptr<WwdResourceLoader> Create();
 };
 

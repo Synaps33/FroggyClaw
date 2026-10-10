@@ -246,6 +246,7 @@ bool BaseGameLogic::VLoadGame(const char* xmlLevelResource)
     if (!pLevelProperties)
     {
         LOG_ERROR("Level does not have level properties node.");
+        SAFE_DELETE(pXmlLevelRoot);
         return false;
     }
 
@@ -333,10 +334,11 @@ bool BaseGameLogic::VLoadGame(const char* xmlLevelResource)
     g_pApp->SetCurrentPalette(PalResourceLoader::LoadAndReturnPal(palettePath.c_str()));
 
     uint32 clawId = -1;
-    for (TiXmlElement* pActorElem = pXmlLevelRoot->FirstChildElement("Actor"); 
-        pActorElem != NULL;
-        pActorElem = pActorElem->NextSiblingElement("Actor"))
+    TiXmlElement* pActorElem = pXmlLevelRoot->FirstChildElement("Actor");
+    while (pActorElem != NULL)
     {
+        TiXmlElement* pNextActorElem = pActorElem->NextSiblingElement("Actor");
+
         //LOG("Creating actor: " + std::string(pActorElem->Attribute("Type")));
         //if (std::string(pActorElem->Attribute("Type")) != "Plane") break;
         StrongActorPtr pActor = VCreateActor(pActorElem, NULL);
@@ -354,8 +356,21 @@ bool BaseGameLogic::VLoadGame(const char* xmlLevelResource)
         }
         else
         {
+            SAFE_DELETE(pXmlLevelRoot);
             return false;
         }
+
+        /* Free this actor's DOM nodes the moment they are consumed. Holding
+         * the full DOM (~13MB of small allocations on level 1) until spawn
+         * ends interleaves it with the actors' large texture allocations;
+         * on the handheld heap the freed small blocks then sit as holes
+         * that sbrk can never give back (~19MB retained at steady state).
+         * Consuming nodes as we go lets later small allocations recycle
+         * them. RemoveChild deletes the node; nothing past VCreateActor
+         * references it (components copy their values at init). */
+        pXmlLevelRoot->RemoveChild(pActorElem);
+
+        pActorElem = pNextActorElem;
 
         loadingProgress += actorToPercent;
         if ((loadingProgress - lastProgress) >= 10.0f)
@@ -364,6 +379,16 @@ bool BaseGameLogic::VLoadGame(const char* xmlLevelResource)
             lastProgress = loadingProgress;
         }
     }
+
+    /* The DOM tile elements alias the parsed WapWwd's tile arrays through
+     * tinyxml userData (see WwdToXml), so the parsed level must outlive actor
+     * spawning; by now every plane component has copied its tile ids into its
+     * own containers. Release the parsed WapWwd (thousands of object/string
+     * structs duplicating the DOM) before the save/physics phase - the next
+     * load (respawn, continue) re-parses it from the raw bytes the cache
+     * handle still carries. */
+    WwdResourceLoader::ReleaseCachedWwd(xmlLevelResource);
+    MEM_LOG("wwd-released");
 
     // Load game save data
     MEM_LOG("load-actors-done");

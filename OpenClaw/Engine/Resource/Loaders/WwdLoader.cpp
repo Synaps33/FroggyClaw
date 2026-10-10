@@ -24,6 +24,15 @@ void WwdResourceExtraData::LoadWwd(char* rawBuffer, uint32 size)
     _wapWorldLevel = WAP_WwdLoadFromData(rawBuffer, size);
 }
 
+void WwdResourceExtraData::ReleaseWwd()
+{
+    if (_wapWorldLevel != NULL)
+    {
+        WAP_WwdDestroy(_wapWorldLevel);
+        _wapWorldLevel = NULL;
+    }
+}
+
 //=================================================================================================
 // class WwdResourceLoader
 //
@@ -60,7 +69,27 @@ WapWwd* WwdResourceLoader::LoadAndReturnWwd(const char* resourceString)
         return NULL;
     }
 
+    // The parsed structs may have been released after a previous load (see
+    // ReleaseCachedWwd); the handle still carries the raw bytes, so re-parse.
+    if (extraData->GetWwd() == NULL)
+    {
+        extraData->LoadWwd(wwdHandle->GetDataBuffer(), wwdHandle->GetSize());
+    }
+
     return extraData->GetWwd();
+}
+
+void WwdResourceLoader::ReleaseCachedWwd(const char* resourceString)
+{
+    Resource resource(resourceString);
+
+    shared_ptr<ResourceHandle> wwdHandle = g_pApp->GetResourceCache()->GetHandle(&resource);
+    shared_ptr<WwdResourceExtraData> extraData = std::static_pointer_cast<WwdResourceExtraData>(wwdHandle->GetExtraData());
+
+    if (extraData)
+    {
+        extraData->ReleaseWwd();
+    }
 }
 
 std::shared_ptr<WwdResourceLoader> WwdResourceLoader::Create()
