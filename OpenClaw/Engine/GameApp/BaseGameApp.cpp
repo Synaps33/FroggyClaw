@@ -999,11 +999,17 @@ bool BaseGameApp::InitializeResources(GameOptions& gameOptions)
 
     unsigned cacheSize = gameOptions.resourceCacheSize;
 #if defined(SF2000) || defined(__mips__)
-    /* SF2000 / GB300 multicore has a 52MB contiguous heap (gp_buf_64m).
-     * Clamping the LRU resource cache to 12MB keeps total heap well under
-     * 36MB even with all level actors loaded, preventing sbrk OOM. */
-    if (cacheSize > 12) {
-        cacheSize = 12;
+    /* SF2000 / GB300 multicore has a 52MB contiguous heap (gp_buf_64m), and
+     * the cache limit only accounts for the raw 8-bit resource bytes. Every
+     * cached image also keeps an RGB565 texture plus alpha mask inside
+     * sdl_compat (Image.cpp creates them from a surface and frees the
+     * surface), i.e. roughly twice the raw size again, outside the cache
+     * accounting - real cost is about 3x the limit. 12MB therefore sat at a
+     * ~49MB baseline and the first level transition (old scene + score
+     * screen + next level alive at once) died in sbrk; 8MB leaves ~15MB of
+     * headroom for that window. */
+    if (cacheSize > 8) {
+        cacheSize = 8;
     }
 #endif
 
