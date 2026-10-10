@@ -85,6 +85,11 @@ public:
     void UnloadLevel();
     void SetLevelData(shared_ptr<LevelData> pLevelData) { m_pCurrentLevel = pLevelData; }
 
+    /* Level (re)loads requested from event delegates are deferred to the next
+     * VOnUpdate, which runs outside event processing: UnloadLevel may then
+     * drop the previous level safely before the new one is loaded. */
+    void RequestLevelLoad() { m_bLevelLoadPending = true; }
+
     void SetRunning(bool running) { m_bRunning = running; }
     bool IsRunning() { return m_bRunning; }
 
@@ -125,6 +130,7 @@ protected:
 
     bool m_Proxy;
     bool m_bRunning;
+    bool m_bLevelLoadPending = false;
 
     bool m_RenderDiagnostics;
     shared_ptr<IGamePhysics> m_pPhysics;

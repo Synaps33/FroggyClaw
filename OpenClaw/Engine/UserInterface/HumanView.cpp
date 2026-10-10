@@ -696,7 +696,10 @@ void HumanView::LoadGameDelegate(IEventDataPtr pEventData)
             shared_ptr<LevelData> pLevelData(new LevelData(levelNumber, isNewGame, checkpointNumber));
             g_pApp->GetGameLogic()->SetLevelData(pLevelData);
 
-            g_pApp->GetGameLogic()->VChangeState(GameState_LoadingLevel);
+            /* Deferred to VOnUpdate: this delegate runs inside event
+             * processing, where the previous level cannot be unloaded
+             * safely, and loading on top of it exhausts the handheld heap. */
+            g_pApp->GetGameLogic()->RequestLevelLoad();
         }
     }
 }

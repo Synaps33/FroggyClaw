@@ -746,6 +746,18 @@ void BaseGameLogic::VOnUpdate(uint32 msDiff)
 {
     m_Lifetime += msDiff;
 
+    /* Deferred level (re)load: delegates only flag the request because they
+     * run inside event processing, where UnloadLevel is not allowed. Doing
+     * it here drops the previous level before the new one is loaded - two
+     * full levels do not fit the 52MB handheld heap at once, which is what
+     * the game-over / respawn reloads died on in sbrk. */
+    if (m_bLevelLoadPending)
+    {
+        m_bLevelLoadPending = false;
+        UnloadLevel();
+        VChangeState(GameState_LoadingLevel);
+    }
+
     // TODO: This is code duplication, should think of better way
     if (!m_bRunning)
     {
@@ -891,6 +903,7 @@ void BaseGameLogic::VChangeState(GameState newState)
         }
 
         int levelNumber = m_pCurrentLevel->GetLevelNumber();
+
         assert(levelNumber >= 0 && levelNumber <= 14);
 
         std::string levelName = "LEVEL" + ToStr(levelNumber);
