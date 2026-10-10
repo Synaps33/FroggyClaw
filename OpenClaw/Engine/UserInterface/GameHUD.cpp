@@ -98,7 +98,8 @@ void ScreenElementHUD::VOnRender(uint32 msDiff)
         // Render score numbers
         for (int i = 0; i < SCORE_NUMBERS_COUNT; i++)
         {
-            SDL_Rect renderRect = { 40 + i * 13, 5, m_ScoreNumbers[i]->GetWidth(), m_ScoreNumbers[i]->GetHeight() };
+            SDL_Rect renderRect = { (40 + i * 13) * HUD_UI_SCALE, 5 * HUD_UI_SCALE,
+                m_ScoreNumbers[i]->GetWidth() * HUD_UI_SCALE, m_ScoreNumbers[i]->GetHeight() * HUD_UI_SCALE };
             SDL_RenderCopy(m_pRenderer, m_ScoreNumbers[i]->GetTexture(), NULL, &renderRect);
         }
     }
@@ -108,11 +109,14 @@ void ScreenElementHUD::VOnRender(uint32 msDiff)
         // Render health numbers
         for (int i = 0; i < HEALTH_NUMBERS_COUNT; i++)
         {
-            SDL_Rect renderRect = { 
-                (int)(cameraWidth / scale.x) - 60 + i * (m_HealthNumbers[i]->GetWidth() - 0) + m_HealthNumbers[i]->GetOffsetX(),
-                2 + m_HealthNumbers[i]->GetOffsetY(),
-                m_HealthNumbers[i]->GetWidth(), 
-                m_HealthNumbers[i]->GetHeight() };
+            /* The digits sit on the heart frame, which HUDSceneNode magnifies
+             * around the top-right corner; scale their corner-relative offsets
+             * by the same factor so they stay on the frame. */
+            SDL_Rect renderRect = {
+                (int)(cameraWidth / scale.x) + (-60 + i * (m_HealthNumbers[i]->GetWidth() - 0) + m_HealthNumbers[i]->GetOffsetX()) * HUD_UI_SCALE,
+                (2 + m_HealthNumbers[i]->GetOffsetY()) * HUD_UI_SCALE,
+                m_HealthNumbers[i]->GetWidth() * HUD_UI_SCALE,
+                m_HealthNumbers[i]->GetHeight() * HUD_UI_SCALE };
             SDL_RenderCopy(m_pRenderer, m_HealthNumbers[i]->GetTexture(), NULL, &renderRect);
         }
     }
@@ -122,11 +126,11 @@ void ScreenElementHUD::VOnRender(uint32 msDiff)
         // Render ammo numbers
         for (int i = 0; i < AMMO_NUMBERS_COUNT; i++)
         {
-            SDL_Rect renderRect = { 
-                (int)(cameraWidth / scale.x) - 46 + i * (m_AmmoNumbers[i]->GetWidth() + m_AmmoNumbers[i]->GetOffsetX()), 
-                43 + m_AmmoNumbers[i]->GetOffsetY(), 
-                m_AmmoNumbers[i]->GetWidth(), 
-                m_AmmoNumbers[i]->GetHeight() };
+            SDL_Rect renderRect = {
+                (int)(cameraWidth / scale.x) + (-46 + i * (m_AmmoNumbers[i]->GetWidth() + m_AmmoNumbers[i]->GetOffsetX())) * HUD_UI_SCALE,
+                (43 + m_AmmoNumbers[i]->GetOffsetY()) * HUD_UI_SCALE,
+                m_AmmoNumbers[i]->GetWidth() * HUD_UI_SCALE,
+                m_AmmoNumbers[i]->GetHeight() * HUD_UI_SCALE };
             SDL_RenderCopy(m_pRenderer, m_AmmoNumbers[i]->GetTexture(), NULL, &renderRect);
         }
     }
@@ -136,11 +140,11 @@ void ScreenElementHUD::VOnRender(uint32 msDiff)
         // Render lives numbers
         for (int i = 0; i < LIVES_NUMBERS_COUNT; i++)
         {
-            SDL_Rect renderRect = { 
-                (int)(cameraWidth / scale.x) - 36 + i * (m_LivesNumbers[i]->GetWidth() + m_LivesNumbers[i]->GetOffsetX()),
-                71 + m_LivesNumbers[i]->GetOffsetY(),
-                m_LivesNumbers[i]->GetWidth(), 
-                m_LivesNumbers[i]->GetHeight() };
+            SDL_Rect renderRect = {
+                (int)(cameraWidth / scale.x) + (-36 + i * (m_LivesNumbers[i]->GetWidth() + m_LivesNumbers[i]->GetOffsetX())) * HUD_UI_SCALE,
+                (71 + m_LivesNumbers[i]->GetOffsetY()) * HUD_UI_SCALE,
+                m_LivesNumbers[i]->GetWidth() * HUD_UI_SCALE,
+                m_LivesNumbers[i]->GetHeight() * HUD_UI_SCALE };
             SDL_RenderCopy(m_pRenderer, m_LivesNumbers[i]->GetTexture(), NULL, &renderRect);
         }
     }
@@ -150,7 +154,8 @@ void ScreenElementHUD::VOnRender(uint32 msDiff)
         // Render stopwatch numbers
         for (int i = 0; i < STOPWATCH_NUMBERS_COUNT; i++)
         {
-            SDL_Rect renderRect = { 40 + i * 13, 45, m_StopwatchNumbers[i]->GetWidth(), m_StopwatchNumbers[i]->GetHeight() };
+            SDL_Rect renderRect = { (40 + i * 13) * HUD_UI_SCALE, 45 * HUD_UI_SCALE,
+                m_StopwatchNumbers[i]->GetWidth() * HUD_UI_SCALE, m_StopwatchNumbers[i]->GetHeight() * HUD_UI_SCALE };
             SDL_RenderCopy(m_pRenderer, m_StopwatchNumbers[i]->GetTexture(), NULL, &renderRect);
         }
     }
@@ -180,13 +185,17 @@ void ScreenElementHUD::VOnRender(uint32 msDiff)
         Point windowScale = g_pApp->GetScale();
 
         pos.Set(
-            (((windowSize.x * 0.5) / windowScale.x) - 114),
+            (((windowSize.x * 0.5) / windowScale.x) - 114 * HUD_UI_SCALE),
             ((windowSize.y * 0.8) / windowScale.y) - 3);
 
         SDL_Rect renderRect;
         SDL_QueryTexture(m_pBossBarTexture, NULL, NULL, &renderRect.w, &renderRect.h);
         renderRect.x = pos.x;
         renderRect.y = pos.y;
+        /* 114 is half of the bar's full length, so scaling both keeps a full
+         * bar centred the same way the unscaled layout did. */
+        renderRect.w *= HUD_UI_SCALE;
+        renderRect.h *= HUD_UI_SCALE;
         SDL_RenderCopy(m_pRenderer, m_pBossBarTexture, NULL, &renderRect);
     }
 }
